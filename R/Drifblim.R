@@ -19,7 +19,7 @@
 #' Includes basic error handling and self-throttling (0.3 seconds).
 #'
 #' @export
-station_year_month <- function(station_id, station_name, station_folder, 
+download_station_month <- function(station_id, station_name, station_folder,
                                year, month, downloader = download.file,
                                sleeper = Sys.sleep) {
   url <- paste0(
@@ -29,18 +29,18 @@ station_year_month <- function(station_id, station_name, station_folder,
     "&Month=", month,
     "&Day=14&timeframe=1"
   )
-  
+
   dest_file <- file.path(
     station_folder,
     paste0(station_name, "-", station_id, "-", year, "-", month, ".csv")
   )
-  
+
   # If file already exists skip it
   if (file.exists(dest_file) && file.info(dest_file)$size > 0) {
     message("Skipping existing file: ", basename(dest_file))
     return(invisible(TRUE))
   }
-  
+
   # download the governments files :3 (with error handling)
   success <- tryCatch({
     downloader(url, destfile = dest_file, mode = "wb", quiet = TRUE)
@@ -80,20 +80,19 @@ station_year_month <- function(station_id, station_name, station_folder,
 #' Better than apply() because it coerces to a matrix
 #'
 #' @export
-station_full <- function(station, out_dir, first_year = NULL, last_year = NULL) {
-  
+download_station <- function(station, out_dir, first_year = NULL, last_year = NULL) {
+
   station_id   <- station$Station.ID
   station_name <- gsub(" ", "_", station$Name)
-  province     <- gsub(" ", "_", station$Province)
-  
+
   # Metadata range
   meta_first <- as.numeric(station$HLY.First.Year)
   meta_last  <- as.numeric(station$HLY.Last.Year)
-  
+
   # Use metadata if not provided
   begin_year <- if (is.null(first_year)) meta_first else as.numeric(first_year)
   end_year   <- if (is.null(last_year))  meta_last  else as.numeric(last_year)
-  
+
   # Range validation
   if (begin_year < meta_first) {
     message(
@@ -103,7 +102,7 @@ station_full <- function(station, out_dir, first_year = NULL, last_year = NULL) 
     )
     begin_year <- meta_first
   }
-  
+
   if (end_year > meta_last) {
     message(
       "Requested end year (", end_year,
@@ -116,19 +115,19 @@ station_full <- function(station, out_dir, first_year = NULL, last_year = NULL) 
   if (begin_year > end_year) {
     stop("No valid years to download after adjusting to station data range.")
   }
-  
+
   years <- seq(begin_year, end_year)
   months <- 1:12
-  
+
   station_folder <- file.path(out_dir, paste0(station_name, "-", station_id))
   if (!dir.exists(station_folder)) dir.create(station_folder, recursive = TRUE)
-  
+
   combos <- expand.grid(year = years, month = months)
-  
+
   purrr::pwalk(
     combos,
     function(year, month) {
-      station_year_month(
+      download_station_month(
         station_id,
         station_name,
         station_folder,
@@ -158,29 +157,28 @@ station_full <- function(station, out_dir, first_year = NULL, last_year = NULL) 
 #' If both are provided, \code{station_name} takes precedence.
 #'
 #' @export
-.load_default_station_data <- function() {
-  data_path <- system.file("data", "HLY_station_info.csv", package = "Drifloon")
+.load_station_metadata <- function() {
+  data_path <- system.file("data", "HLY_station_info.rds", package = "Drifloon")
+
   if (nzchar(data_path) && file.exists(data_path)) {
-    return(utils::read.csv(data_path, stringsAsFactors = FALSE))
-  }
+    return(readRDS(data_path))}
 
-  local_path <- file.path("data", "HLY_station_info.csv")
+  local_path <- file.path("data", "HLY_station_info.rds")
+
   if (file.exists(local_path)) {
-    return(utils::read.csv(local_path, stringsAsFactors = FALSE))
-  }
-
+    return(readRDS(local_path))}
   stop(
-    "Could not find station metadata. Provide station_data explicitly or add data/HLY_station_info.csv."
-  )
+    "Could not find station metadata. Provide station_data explicitly or add data/HLY_station_info.rds."
+    )
 }
 
-station_by_name_id <- function(station_data = NULL, out_dir,
+download_station_by_name <- function(station_data = NULL, out_dir,
                                station_name = NULL,
                                station_id = NULL,
                                first_year = NULL,
                                last_year = NULL) {
   if (is.null(station_data)) {
-    station_data <- .load_default_station_data()
+    station_data <- .load_station_metadata()
   }
 
   if (!is.null(station_name)) {
@@ -201,11 +199,35 @@ station_by_name_id <- function(station_data = NULL, out_dir,
     } else {
     stop("Must provide station_name or station_id.")
     }
-  
+
   # check if station exists
   if (length(idx) == 0) stop("Station not found.")
   station_row <- as.list(station_data[idx[1], ])
-  station_full(station_row, out_dir, first_year, last_year)
+  download_station(station_row, out_dir, first_year, last_year)
+}
+
+
+#' Load station metadata into the user's environment
+#'
+#' Loads the hourly station metadata included with the package and assigns
+#' it to the user's global environment as \code{station_metadata}.
+#'
+#' @return Invisibly returns the metadata data frame.
+#'
+#' @details
+#' The metadata is loaded from the packaged file
+#' \code{data/HLY_station_info.csv}. If the package file is not found,
+#' a local file in the working directory is used as a fallback.
+#'
+#' @export
+load_metadata <- function() {
+  data_path <- system.file("data", "HLY_station_info.rds", package = "Drifloon")
+
+  if (!nzchar(data_path) || !file.exists(data_path)) {
+    stop("Could not find station metadata.")
+  }
+
+  readRDS(data_path)
 }
 
 #' Download hourly data for all stations
@@ -224,8 +246,8 @@ station_by_name_id <- function(station_data = NULL, out_dir,
 #' Use with caution — this will trigger a very large number of downloads.
 #'
 #' @export
-all_stations <- function(station_data, out_dir, first_year = NULL, last_year = NULL) {
+download_all_station <- function(station_data, out_dir, first_year = NULL, last_year = NULL) {
   purrr::pwalk(station_data, function(...) {
-    station_full(list(...), out_dir, first_year, last_year)
+    download_station(list(...), out_dir, first_year, last_year)
   })
 }

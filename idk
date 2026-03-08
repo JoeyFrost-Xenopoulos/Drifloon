@@ -1,6 +1,0 @@
-Function that loads the meta data file
-  - override if they have an updated version
-
-R CMD sends to back of R to run command
-R CMD build
-R CMD install

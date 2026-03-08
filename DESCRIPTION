@@ -3,7 +3,7 @@ Type: Package
 Title: Weather Downloader
 Version: 0.0.1
 Author: Joey Frost-Xenopoulos
-Maintainer: Your Name <joeyfrostxenopoulos@trentu.ca>
+Maintainer: Blinkey <joeyfrostxenopoulos@trentu.ca>
 Description: Downloads Canadian weather station data.
 License: MIT
 Encoding: UTF-8
