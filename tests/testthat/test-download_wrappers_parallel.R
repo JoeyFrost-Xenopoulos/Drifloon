@@ -1,0 +1,273 @@
+test_that("download_station_by_name forwards parallel argument", {
+  captured_parallel <- NULL
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_parallel <<- parallel
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = "Test Station",
+    Station.ID = 99,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2001,
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon:::download_station_by_name(
+    station_data = station_data,
+    out_dir = out_dir,
+    station_name = "Test Station",
+    parallel = TRUE
+  )
+
+  expect_true(captured_parallel)
+})
+
+test_that("download_station_province passes through furrr and disables nested parallel", {
+  testthat::skip_if_not_installed("furrr")
+
+  used_future <- FALSE
+  captured_parallel <- logical(0)
+
+  fake_future_pwalk <- function(.l, .f, ...) {
+    used_future <<- TRUE
+    for (i in seq_len(nrow(.l))) {
+      .f(.l$Name[[i]], .l$Station.ID[[i]], .l$Province[[i]], .l$HLY.First.Year[[i]], .l$HLY.Last.Year[[i]])
+    }
+    invisible(NULL)
+  }
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_parallel <<- c(captured_parallel, parallel)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "ON"),
+    HLY.First.Year = c(2000, 2001),
+    HLY.Last.Year = c(2002, 2003),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    future_pwalk = fake_future_pwalk,
+    .package = "furrr"
+  )
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    station_data = station_data,
+    out_dir = out_dir,
+    province = "ON",
+    parallel = TRUE
+  )
+
+  expect_true(used_future)
+  expect_true(all(captured_parallel == FALSE))
+  expect_equal(length(captured_parallel), 2)
+})
+
+test_that("download_all_station passes through furrr and disables nested parallel", {
+  testthat::skip_if_not_installed("furrr")
+
+  used_future <- FALSE
+  captured_parallel <- logical(0)
+
+  fake_future_pwalk <- function(.l, .f, ...) {
+    used_future <<- TRUE
+    for (i in seq_len(nrow(.l))) {
+      .f(.l$Name[[i]], .l$Station.ID[[i]], .l$Province[[i]], .l$HLY.First.Year[[i]], .l$HLY.Last.Year[[i]])
+    }
+    invisible(NULL)
+  }
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_parallel <<- c(captured_parallel, parallel)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3"),
+    Station.ID = c(1, 2, 3),
+    Province = c("ON", "ON", "QC"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2002, 2003, 2004),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    future_pwalk = fake_future_pwalk,
+    .package = "furrr"
+  )
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_all_station(
+    station_data = station_data,
+    out_dir = out_dir,
+    parallel = TRUE
+  )
+
+  expect_true(used_future)
+  expect_true(all(captured_parallel == FALSE))
+  expect_equal(length(captured_parallel), 3)
+})
+
+test_that("download_station_province sequential mode calls matching stations", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    expect_false(parallel)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3"),
+    Station.ID = c(1, 2, 3),
+    Province = c("ON", "QC", "ON"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2003, 2004, 2005),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    station_data = station_data,
+    out_dir = out_dir,
+    province = "ON",
+    parallel = FALSE
+  )
+
+  expect_equal(sort(captured_ids), c(1, 3))
+})
+
+test_that("download_station_province loads metadata when station_data is NULL", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, ...) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  loaded <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "QC"),
+    HLY.First.Year = c(2000, 2001),
+    HLY.Last.Year = c(2003, 2004),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    .load_station_metadata = function() loaded,
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    station_data = NULL,
+    out_dir = out_dir,
+    province = "ON"
+  )
+
+  expect_equal(captured_ids, 1)
+})
+
+test_that("download_station_province errors when no station matches province", {
+  station_data <- data.frame(
+    Name = "S1",
+    Station.ID = 1,
+    Province = "QC",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2003,
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  expect_error(
+    Drifloon::download_station_province(
+      station_data = station_data,
+      out_dir = out_dir,
+      province = "ON"
+    ),
+    "No stations found"
+  )
+})
+
+test_that("download_all_station sequential mode calls all stations", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    expect_false(parallel)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3"),
+    Station.ID = c(1, 2, 3),
+    Province = c("ON", "QC", "AB"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2003, 2004, 2005),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_all_station(
+    station_data = station_data,
+    out_dir = out_dir,
+    parallel = FALSE
+  )
+
+  expect_equal(sort(captured_ids), c(1, 2, 3))
+})

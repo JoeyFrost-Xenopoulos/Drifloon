@@ -19,6 +19,9 @@ if omitted, packaged metadata is loaded automatically.}
 \item{first_year}{Numeric. First year to download (optional).}
 
 \item{last_year}{Numeric. Last year to download (optional).}
+
+\item{parallel}{Logical. If \code{TRUE}, months are downloaded in parallel
+using \code{furrr::future_pwalk}. Default is \code{FALSE}.}
 }
 \value{
 Invisibly returns \code{NULL}.

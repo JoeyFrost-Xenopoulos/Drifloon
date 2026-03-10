@@ -4,7 +4,13 @@
 \alias{download_station}
 \title{Download full available hourly dataset for a single station}
 \usage{
-download_station(station, out_dir, first_year = NULL, last_year = NULL)
+download_station(
+  station,
+  out_dir,
+  first_year = NULL,
+  last_year = NULL,
+  parallel = FALSE
+)
 }
 \arguments{
 \item{station}{List or named vector containing station metadata.
@@ -16,6 +22,9 @@ Must include \code{Station.ID}, \code{Name}, \code{Province},
 \item{first_year}{Numeric. First year to download (default: station metadata).}
 
 \item{last_year}{Numeric. Last year to download (default: station metadata).}
+
+\item{parallel}{Logical. If \code{TRUE}, downloads months in parallel using
+\code{furrr::future_pwalk}. Default is \code{FALSE}.}
 }
 \value{
 Invisibly returns \code{NULL}.
@@ -27,6 +36,7 @@ Download full available hourly dataset for a single station
 Year ranges are validated against station metadata. If requested years
 exceed available data, they are automatically adjusted.
 
-Data are downloaded month-by-month using \code{purrr::pwalk}.
+Data are downloaded month-by-month using \code{purrr::pwalk} by default,
+or \code{furrr::future_pwalk} when \code{parallel = TRUE}.
 Better than apply() because it coerces to a matrix
 }

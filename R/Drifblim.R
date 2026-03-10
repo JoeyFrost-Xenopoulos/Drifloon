@@ -69,6 +69,8 @@ download_station_month <- function(station_id, station_name, station_folder,
 #' @param out_dir Character. Base directory where station folders will be created.
 #' @param first_year Numeric. First year to download (default: station metadata).
 #' @param last_year Numeric. Last year to download (default: station metadata).
+#' @param parallel Logical. If \code{TRUE}, downloads months in parallel using
+#'   \code{furrr::future_pwalk}. Default is \code{FALSE}.
 #'
 #' @return Invisibly returns \code{NULL}.
 #'
@@ -76,11 +78,12 @@ download_station_month <- function(station_id, station_name, station_folder,
 #' Year ranges are validated against station metadata. If requested years
 #' exceed available data, they are automatically adjusted.
 #'
-#' Data are downloaded month-by-month using \code{purrr::pwalk}.
-#' Better than apply() because it coerces to a matrix
+#' Data are downloaded month-by-month using \code{purrr::pwalk} by default,
+#' or \code{furrr::future_pwalk} when \code{parallel = TRUE}.
 #'
 #' @export
-download_station <- function(station, out_dir, first_year = NULL, last_year = NULL) {
+download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                             parallel = FALSE) {
 
   station_id   <- station$Station.ID
   station_name <- gsub(" ", "_", station$Name)
@@ -124,7 +127,9 @@ download_station <- function(station, out_dir, first_year = NULL, last_year = NU
 
   combos <- expand.grid(year = years, month = months)
 
-  purrr::pwalk(
+  walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
+
+  walker(
     combos,
     function(year, month) {
       download_station_month(
@@ -132,7 +137,8 @@ download_station <- function(station, out_dir, first_year = NULL, last_year = NU
         station_name,
         station_folder,
         year,
-        month)
+        month
+      )
     }
   )
 }
@@ -149,6 +155,8 @@ download_station <- function(station, out_dir, first_year = NULL, last_year = NU
 #' @param station_id Numeric. Station ID (optional).
 #' @param first_year Numeric. First year to download (optional).
 #' @param last_year Numeric. Last year to download (optional).
+#' @param parallel Logical. If \code{TRUE}, months are downloaded in parallel
+#'   using \code{furrr::future_pwalk}. Default is \code{FALSE}.
 #'
 #' @return Invisibly returns \code{NULL}.
 #'
@@ -176,7 +184,8 @@ download_station_by_name <- function(station_data = NULL, out_dir,
                                station_name = NULL,
                                station_id = NULL,
                                first_year = NULL,
-                               last_year = NULL) {
+                               last_year = NULL,
+                               parallel = FALSE) {
   if (is.null(station_data)) {
     station_data <- .load_station_metadata()
   }
@@ -203,9 +212,127 @@ download_station_by_name <- function(station_data = NULL, out_dir,
   # check if station exists
   if (length(idx) == 0) stop("Station not found.")
   station_row <- as.list(station_data[idx[1], ])
-  download_station(station_row, out_dir, first_year, last_year)
+  download_station(
+    station_row,
+    out_dir,
+    first_year,
+    last_year,
+    parallel = parallel
+  )
 }
 
+#' Normalize province input
+#'
+#' Converts province names or abbreviations to standardized
+#' two-letter province codes.
+#'
+#' @param province Character. Province name or abbreviation.
+#'
+#' @return Character. Standardized province abbreviation.
+#'
+#' @keywords internal
+.province_normalize <- function(province) {
+  province_list <- c(
+    "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+    "Newfoundland and Labrador", "Nova Scotia", "Ontario",
+    "Prince Edward Island", "Quebec", "Saskatchewan",
+    "Nunavut", "Northwest Territories", "Yukon"
+  )
+  province_abbr <- c(
+    "AB","BC","MB","NB","NL","NS","ON",
+    "PE","QC","SK","NU","NT","YT"
+  )
+
+  province <- trimws(tolower(province))
+  name_match <- match(province, tolower(province_list))
+  abbr_match <- match(toupper(province), province_abbr)
+
+  if (!is.na(name_match)) {
+    return(province_abbr[name_match])}
+
+  if (!is.na(abbr_match)) {
+    return(province_abbr[abbr_match])}
+  stop(
+    paste0(
+      "Invalid province. Choose one of: ",
+      paste(province_abbr, collapse = ", "))
+  )
+}
+
+#' Download data for all stations in a province
+#'
+#' Iterates over all stations in a selected province and downloads
+#' hourly data for each.
+#'
+#' @param station_data Data frame of station metadata. Optional.
+#' @param out_dir Character. Base output directory.
+#' @param province Character. Province name or abbreviation.
+#' @param first_year Numeric. Optional starting year.
+#' @param last_year Numeric. Optional ending year.
+#' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
+#'   using \code{furrr::future_pwalk}. Default is \code{FALSE}.
+#'
+#' @return Invisibly returns \code{NULL}.
+#'
+#' @details
+#' Could trigger a very large number of downloads.
+#'
+#' @export
+download_station_province <- function(station_data = NULL,
+                                      out_dir,
+                                      province,
+                                      first_year = NULL,
+                                      last_year = NULL,
+                                      parallel = FALSE) {
+
+  if (is.null(station_data)) {
+    station_data <- .load_station_metadata()
+  }
+
+  province_code <- .province_normalize(province)
+  stations <- station_data[station_data$Province == province_code, ]
+
+  if (nrow(stations) == 0) {
+    stop("No stations found for province: ", province_code)
+  }
+
+  walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
+
+  walker(stations, function(...) {
+    # Avoid nested futures by keeping per-station downloads sequential here.
+    download_station(list(...), out_dir, first_year, last_year, parallel = FALSE)
+  })
+
+  invisible(NULL)
+}
+
+#' Download hourly data for all stations
+#'
+#' Iterates over all stations in a metadata data frame and downloads
+#' hourly data for each from evironmental canadas website.
+#'
+#' @param station_data Data frame of station metadata.
+#' @param out_dir Character. Base output directory.
+#' @param first_year Numeric. Optional starting year.
+#' @param last_year Numeric. Optional ending year.
+#' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
+#'   using \code{furrr::future_pwalk}. Default is \code{FALSE}.
+#'
+#' @return Invisibly returns \code{NULL}.
+#'
+#' @details
+#' Use with caution — this will trigger a very large number of downloads.
+#'
+#' @export
+download_all_station <- function(station_data, out_dir, first_year = NULL,
+                                 last_year = NULL, parallel = FALSE) {
+  walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
+
+  walker(station_data, function(...) {
+    # Avoid nested futures by keeping per-station downloads sequential here.
+    download_station(list(...), out_dir, first_year, last_year, parallel = FALSE)
+  })
+}
 
 #' Load station metadata into the user's environment
 #'
@@ -228,26 +355,4 @@ load_metadata <- function() {
   }
 
   readRDS(data_path)
-}
-
-#' Download hourly data for all stations
-#'
-#' Iterates over all stations in a metadata data frame and downloads
-#' hourly data for each.
-#'
-#' @param station_data Data frame of station metadata.
-#' @param out_dir Character. Base output directory.
-#' @param first_year Numeric. Optional starting year.
-#' @param last_year Numeric. Optional ending year.
-#'
-#' @return Invisibly returns \code{NULL}.
-#'
-#' @details
-#' Use with caution — this will trigger a very large number of downloads.
-#'
-#' @export
-download_all_station <- function(station_data, out_dir, first_year = NULL, last_year = NULL) {
-  purrr::pwalk(station_data, function(...) {
-    download_station(list(...), out_dir, first_year, last_year)
-  })
 }
