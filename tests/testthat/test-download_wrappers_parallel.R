@@ -40,10 +40,10 @@ test_that("download_station_province passes through furrr and disables nested pa
   used_future <- FALSE
   captured_parallel <- logical(0)
 
-  fake_future_pwalk <- function(.l, .f, ...) {
+  fake_future_walk <- function(.x, .f, ...) {
     used_future <<- TRUE
-    for (i in seq_len(nrow(.l))) {
-      .f(.l$Name[[i]], .l$Station.ID[[i]], .l$Province[[i]], .l$HLY.First.Year[[i]], .l$HLY.Last.Year[[i]])
+    for (i in seq_along(.x)) {
+      .f(.x[[i]])
     }
     invisible(NULL)
   }
@@ -67,7 +67,7 @@ test_that("download_station_province passes through furrr and disables nested pa
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
   local_mocked_bindings(
-    future_pwalk = fake_future_pwalk,
+    future_walk = fake_future_walk,
     .package = "furrr"
   )
 
@@ -178,6 +178,81 @@ test_that("download_station_province sequential mode calls matching stations", {
   expect_equal(sort(captured_ids), c(1, 3))
 })
 
+test_that("download_station_province accepts province as first positional argument", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3"),
+    Station.ID = c(1, 2, 3),
+    Province = c("ON", "QC", "ON"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2003, 2004, 2005),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    "ON",
+    station_data = station_data,
+    out_dir = out_dir,
+    parallel = FALSE
+  )
+
+  expect_equal(sort(captured_ids), c(1, 3))
+})
+
+test_that("download_station_province supports legacy positional order with warning", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3"),
+    Station.ID = c(1, 2, 3),
+    Province = c("ON", "QC", "ON"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2003, 2004, 2005),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  expect_warning(
+    Drifloon::download_station_province(
+      station_data,
+      out_dir,
+      "ON",
+      parallel = FALSE
+    ),
+    "Deprecated positional call"
+  )
+
+  expect_equal(sort(captured_ids), c(1, 3))
+})
+
 test_that("download_station_province loads metadata when station_data is NULL", {
   captured_ids <- integer(0)
 
@@ -234,6 +309,44 @@ test_that("download_station_province errors when no station matches province", {
     ),
     "No stations found"
   )
+})
+
+test_that("download_station_province requests every month for every year", {
+  calls <- data.frame(year = integer(0), month = integer(0))
+
+  fake_download_station_month <- function(station_id, station_name, station_folder, year, month,
+                                          downloader = download.file, sleeper = Sys.sleep) {
+    calls <<- rbind(calls, data.frame(year = as.integer(year), month = as.integer(month)))
+    invisible(TRUE)
+  }
+
+  station_data <- data.frame(
+    Name = "Discovery Island",
+    Station.ID = 123,
+    Province = "BRITISH COLUMBIA",
+    HLY.First.Year = 1997,
+    HLY.Last.Year = 1998,
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    .download_station_month_file = fake_download_station_month,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    station_data = station_data,
+    out_dir = out_dir,
+    province = "BC",
+    parallel = FALSE
+  )
+
+  expect_equal(nrow(calls), 24)
+  expect_equal(sort(unique(calls$year)), c(1997L, 1998L))
+  expect_equal(sort(unique(calls$month)), 1:12)
 })
 
 test_that("download_all_station sequential mode calls all stations", {

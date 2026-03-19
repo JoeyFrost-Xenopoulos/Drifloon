@@ -4,16 +4,17 @@
 \alias{.province_normalize}
 \title{Normalize province input}
 \usage{
-.province_normalize(province)
+.province_normalize(province, strict = TRUE)
 }
 \arguments{
-\item{province}{Character. Province name or abbreviation.}
+\item{province}{Character vector of province names or abbreviations.}
 }
 \value{
-Character. Standardized province abbreviation.
+Character vector of normalized province names in uppercase
+  (for example, \code{"BRITISH COLUMBIA"}).
 }
 \description{
 Converts province names or abbreviations to standardized
-two-letter province codes.
+uppercase full province or territory names.
 }
 \keyword{internal}

@@ -5,25 +5,30 @@
 \title{Download hourly climate data for a single station-year-month}
 \usage{
 download_station_month(
-  station_id,
-  station_name,
-  station_folder,
+  station_data = NULL,
+  out_dir = NULL,
   year,
   month,
+  station_name = NULL,
+  station_id = NULL,
   downloader = download.file,
   sleeper = Sys.sleep
 )
 }
 \arguments{
-\item{station_id}{Numeric. The station ID.}
+\item{station_data}{Data frame containing station metadata. Optional;
+if omitted, packaged metadata is loaded automatically.}
 
-\item{station_name}{Character. Station name (used for file naming).}
+\item{out_dir}{Character. Base output directory.
+If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
-\item{station_folder}{Character. Directory where files will be saved.}
-
-\item{year}{Numeric. Year to download (1980-2020).}
+\item{year}{Numeric. Year to download.}
 
 \item{month}{Numeric. Month to download (1–12).}
+
+\item{station_name}{Character. Station name (optional).}
+
+\item{station_id}{Numeric. Station ID (optional).}
 
 \item{downloader}{Function. Download function (default: \code{download.file}).
 Useful for testing/mocking (testthat).}
@@ -34,11 +39,10 @@ Useful for testing/mocking (testthat).}
 Invisibly returns \code{TRUE} if successful, \code{FALSE} otherwise.
 }
 \description{
-Downloads one month of hourly climate data for a given station from
-Environment and Climate Change Canada's bulk data endpoint.
-Main download function which is passed parameters to deal with the downloads
+Downloads one month of hourly climate data for a station selected by name
+or station ID.
 }
 \details{
-Skips download if file already exists and is non-empty.
-Includes basic error handling and self-throttling (0.3 seconds).
+Either \code{station_name} or \code{station_id} must be provided.
+If both are provided, \code{station_name} takes precedence.
 }

@@ -2,35 +2,15 @@
 % Please edit documentation in R/Drifblim.R
 \name{.load_station_metadata}
 \alias{.load_station_metadata}
-\title{Download station data by name or station ID}
+\title{Load packaged station metadata}
 \usage{
 .load_station_metadata()
 }
-\arguments{
-\item{station_data}{Data frame containing station metadata. Optional;
-if omitted, packaged metadata is loaded automatically.}
-
-\item{out_dir}{Character. Base output directory.}
-
-\item{station_name}{Character. Station name (optional).}
-
-\item{station_id}{Numeric. Station ID (optional).}
-
-\item{first_year}{Numeric. First year to download (optional).}
-
-\item{last_year}{Numeric. Last year to download (optional).}
-
-\item{parallel}{Logical. If \code{TRUE}, months are downloaded in parallel
-using \code{furrr::future_pwalk}. Default is \code{FALSE}.}
-}
 \value{
-Invisibly returns \code{NULL}.
+Data frame of station metadata.
 }
 \description{
-Wrapper to download data for a station identified by
-either its name or station ID.
+Internal helper used by download wrappers when 
+\code{station_data} is not supplied.
 }
-\details{
-Either \code{station_name} or \code{station_id} must be provided.
-If both are provided, \code{station_name} takes precedence.
-}
+\keyword{internal}

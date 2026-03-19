@@ -2,19 +2,17 @@
 % Please edit documentation in R/Drifblim.R
 \name{load_metadata}
 \alias{load_metadata}
-\title{Load station metadata into the user's environment}
+\title{Load station metadata}
 \usage{
 load_metadata()
 }
 \value{
-Invisibly returns the metadata data frame.
+Data frame of station metadata.
 }
 \description{
-Loads the hourly station metadata included with the package and assigns
-it to the user's global environment as \code{station_metadata}.
+Loads the hourly station metadata included with the package.
 }
 \details{
 The metadata is loaded from the packaged file
-\code{data/HLY_station_info.csv}. If the package file is not found,
-a local file in the working directory is used as a fallback.
+\code{data/HLY_station_info.rds}.
 }

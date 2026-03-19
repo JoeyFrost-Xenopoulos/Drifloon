@@ -2,6 +2,15 @@ test_that("download_station_month downloads file and sleeps", {
   tmp <- tempfile("drifloon-month-")
   dir.create(tmp, recursive = TRUE)
 
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2024,
+    stringsAsFactors = FALSE
+  )
+
   got_sleep <- NULL
   got_url <- NULL
   got_dest <- NULL
@@ -19,11 +28,11 @@ test_that("download_station_month downloads file and sleeps", {
   }
 
   result <- Drifloon::download_station_month(
-    station_id = 31688,
-    station_name = "MyStation",
-    station_folder = tmp,
+    station_data = station_data,
+    out_dir = tmp,
     year = 2020,
     month = 7,
+    station_id = 31688,
     downloader = fake_downloader,
     sleeper = fake_sleeper
   )
@@ -40,7 +49,18 @@ test_that("download_station_month skips existing non-empty file", {
   tmp <- tempfile("drifloon-month-")
   dir.create(tmp, recursive = TRUE)
 
-  dest <- file.path(tmp, "MyStation-31688-2020-7.csv")
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2024,
+    stringsAsFactors = FALSE
+  )
+
+  station_folder <- file.path(tmp, "MyStation")
+  dir.create(station_folder, recursive = TRUE)
+  dest <- file.path(station_folder, "MyStation_2020_07.csv")
   writeLines("already-here", con = dest)
 
   downloader_called <- FALSE
@@ -57,11 +77,11 @@ test_that("download_station_month skips existing non-empty file", {
   }
 
   result <- Drifloon::download_station_month(
-    station_id = 31688,
-    station_name = "MyStation",
-    station_folder = tmp,
+    station_data = station_data,
+    out_dir = tmp,
     year = 2020,
     month = 7,
+    station_id = 31688,
     downloader = fake_downloader,
     sleeper = fake_sleeper
   )
@@ -75,7 +95,18 @@ test_that("download_station_month removes partial file on error", {
   tmp <- tempfile("drifloon-month-")
   dir.create(tmp, recursive = TRUE)
 
-  dest <- file.path(tmp, "MyStation-31688-2020-7.csv")
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2024,
+    stringsAsFactors = FALSE
+  )
+
+  station_folder <- file.path(tmp, "MyStation")
+  dir.create(station_folder, recursive = TRUE)
+  dest <- file.path(station_folder, "MyStation_2020_07.csv")
   sleeper_called <- FALSE
 
   fake_downloader <- function(url, destfile, mode = "wb", quiet = TRUE) {
@@ -89,11 +120,11 @@ test_that("download_station_month removes partial file on error", {
   }
 
   result <- Drifloon::download_station_month(
-    station_id = 31688,
-    station_name = "MyStation",
-    station_folder = tmp,
+    station_data = station_data,
+    out_dir = tmp,
     year = 2020,
     month = 7,
+    station_id = 31688,
     downloader = fake_downloader,
     sleeper = fake_sleeper
   )

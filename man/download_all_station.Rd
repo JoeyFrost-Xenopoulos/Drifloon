@@ -5,17 +5,19 @@
 \title{Download hourly data for all stations}
 \usage{
 download_all_station(
-  station_data,
-  out_dir,
+  station_data = NULL,
+  out_dir = NULL,
   first_year = NULL,
   last_year = NULL,
   parallel = FALSE
 )
 }
 \arguments{
-\item{station_data}{Data frame of station metadata.}
+\item{station_data}{Data frame of station metadata. Optional;
+if omitted, packaged metadata is loaded automatically.}
 
-\item{out_dir}{Character. Base output directory.}
+\item{out_dir}{Character. Base output directory.
+If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{first_year}{Numeric. Optional starting year.}
 
@@ -29,7 +31,7 @@ Invisibly returns \code{NULL}.
 }
 \description{
 Iterates over all stations in a metadata data frame and downloads
-hourly data for each from evironmental canadas website.
+hourly data for each from Environment Canada website.
 }
 \details{
 Use with caution — this will trigger a very large number of downloads.

@@ -6,7 +6,7 @@
 \usage{
 download_station(
   station,
-  out_dir,
+  out_dir = NULL,
   first_year = NULL,
   last_year = NULL,
   parallel = FALSE
@@ -17,7 +17,8 @@ download_station(
 Must include \code{Station.ID}, \code{Name}, \code{Province},
 \code{HLY.First.Year}, and \code{HLY.Last.Year}.}
 
-\item{out_dir}{Character. Base directory where station folders will be created.}
+\item{out_dir}{Character. Base directory where station folders will be created.
+If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{first_year}{Numeric. First year to download (default: station metadata).}
 
@@ -36,7 +37,7 @@ Download full available hourly dataset for a single station
 Year ranges are validated against station metadata. If requested years
 exceed available data, they are automatically adjusted.
 
-Data are downloaded month-by-month using \code{purrr::pwalk} by default,
-or \code{furrr::future_pwalk} when \code{parallel = TRUE}.
-Better than apply() because it coerces to a matrix
+Data are downloaded for each year-month pair (months 1 through 12),
+sequentially by default or in parallel when \code{parallel = TRUE}.
 }
+\keyword{internal}

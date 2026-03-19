@@ -5,27 +5,28 @@
 \title{Download data for all stations in a province}
 \usage{
 download_station_province(
-  station_data = NULL,
-  out_dir,
   province,
+  station_data = NULL,
+  out_dir = NULL,
   first_year = NULL,
   last_year = NULL,
   parallel = FALSE
 )
 }
 \arguments{
+\item{province}{Character. Province name or abbreviation.}
+
 \item{station_data}{Data frame of station metadata. Optional.}
 
-\item{out_dir}{Character. Base output directory.}
-
-\item{province}{Character. Province name or abbreviation.}
+\item{out_dir}{Character. Base output directory.
+If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{first_year}{Numeric. Optional starting year.}
 
 \item{last_year}{Numeric. Optional ending year.}
 
 \item{parallel}{Logical. If \code{TRUE}, stations are downloaded in parallel
-using \code{furrr::future_pwalk}. Default is \code{FALSE}.}
+using \code{furrr::future_walk}. Default is \code{FALSE}.}
 }
 \value{
 Invisibly returns \code{NULL}.
@@ -36,4 +37,7 @@ hourly data for each.
 }
 \details{
 Could trigger a very large number of downloads.
+Backward compatibility note: old positional calls of the form
+\code{download_station_province(station_data, out_dir, province, ...)}
+are still supported with a deprecation warning.
 }

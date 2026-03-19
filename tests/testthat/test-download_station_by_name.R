@@ -165,3 +165,43 @@ test_that("download_station_by_name loads metadata when station_data is NULL", {
 
   expect_equal(captured_id, 10)
 })
+
+test_that("download_station_by_name defaults out_dir to working directory folder", {
+  captured_out_dir <- NULL
+
+  fake_download_station <- function(station, out_dir, ...) {
+    captured_out_dir <<- out_dir
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = "A Station",
+    Station.ID = 10,
+    Province = "ONTARIO",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2005,
+    stringsAsFactors = FALSE
+  )
+
+  old_wd <- getwd()
+  temp_wd <- tempfile("drifloon-default-outdir-")
+  dir.create(temp_wd)
+  setwd(temp_wd)
+  on.exit(setwd(old_wd), add = TRUE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon:::download_station_by_name(
+    station_data = station_data,
+    station_id = 10
+  )
+
+  expect_equal(
+    normalizePath(captured_out_dir, winslash = "/", mustWork = FALSE),
+    normalizePath(file.path(temp_wd, "drifloon_output"), winslash = "/", mustWork = FALSE)
+  )
+  expect_true(dir.exists(captured_out_dir))
+})
