@@ -136,27 +136,65 @@ download_station <- function(station, out_dir = NULL, first_year = NULL, last_ye
     stringsAsFactors = FALSE
   )
 
+  # Use progressr for progress tracking
+  use_progressr <- requireNamespace("progressr", quietly = TRUE)
+
   if (isTRUE(parallel)) {
-    furrr::future_walk(seq_len(nrow(combos)), function(i) {
-      .download_station_month_file(
-        station_id,
-        station_name,
-        station_folder,
-        combos$year[[i]],
-        combos$month[[i]]
-      )
-    })
-  } else {
-    for (year_i in years) {
-      for (month_i in months) {
+    if (use_progressr) {
+      progressr::with_progress({
+        p <- progressr::progressor(steps = nrow(combos), label = paste("Downloading", station_name))
+        furrr::future_walk(seq_len(nrow(combos)), function(i) {
+          .download_station_month_file(
+            station_id,
+            station_name,
+            station_folder,
+            combos$year[[i]],
+            combos$month[[i]]
+          )
+          p()
+        })
+      })
+    } else {
+      furrr::future_walk(seq_len(nrow(combos)), function(i) {
         .download_station_month_file(
           station_id,
           station_name,
           station_folder,
-          year_i,
-          month_i
+          combos$year[[i]],
+          combos$month[[i]]
         )
+      })
+    }
+  } else {
+    if (use_progressr) {
+      progressr::with_progress({
+        p <- progressr::progressor(steps = length(years) * 12, label = paste("Downloading", station_name))
+        for (year_i in years) {
+          for (month_i in months) {
+            .download_station_month_file(
+              station_id,
+              station_name,
+              station_folder,
+              year_i,
+              month_i
+            )
+            p()
+          }
+        }
+      })
+    } else {
+      for (year_i in years) {
+        for (month_i in months) {
+          .download_station_month_file(
+            station_id,
+            station_name,
+            station_folder,
+            year_i,
+            month_i
+          )
+        }
       }
     }
+  }
   }
 }
