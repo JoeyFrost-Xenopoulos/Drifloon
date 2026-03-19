@@ -90,7 +90,7 @@ download_station_month <- function(station_data = NULL,
 #' @param station_name Character. Station name (optional).
 #' @param station_id Numeric. Station ID (optional).
 #' @param out_dir Character. Base output directory.
-#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}. 
+#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
 #' @param station_data Data frame containing station metadata. Optional;
 #'   if omitted, packaged metadata is loaded automatically.
 #' @param first_year Numeric. First year to download (optional).
@@ -157,7 +157,7 @@ download_station_by_name <- function(station_name = NULL,
 #' @param province Character. Province name or abbreviation.
 #' @param station_data Data frame of station metadata. Optional.
 #' @param out_dir Character. Base output directory.
-#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}. 
+#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
 #' @param first_year Numeric. Optional starting year.
 #' @param last_year Numeric. Optional ending year.
 #' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
@@ -268,7 +268,7 @@ download_station_province <- function(province,
 #' @param station_data Data frame of station metadata. Optional;
 #'   if omitted, packaged metadata is loaded automatically.
 #' @param out_dir Character. Base output directory.
-#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}. 
+#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
 #' @param first_year Numeric. Optional starting year.
 #' @param last_year Numeric. Optional ending year.
 #' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
@@ -280,7 +280,7 @@ download_station_province <- function(province,
 #' @return Invisibly returns \code{NULL}.
 #'
 #' @details
-#' Use with caution — this will trigger a very large number of downloads.
+#' Use with caution, this will trigger a very large number of downloads.
 #' By default, an estimated file count and space requirement is shown before
 #' downloading begins. Set \code{confirm = TRUE} to skip this warning.
 #'

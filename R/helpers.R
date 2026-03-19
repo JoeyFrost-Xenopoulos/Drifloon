@@ -165,3 +165,115 @@
 
   normalized
 }
+
+#' Validate year inputs
+#'
+#' Checks that year values are valid (numeric, not negative, not far in future).
+#'
+#' @param year Numeric or NULL. Year value(s) to validate.
+#' @param allow_null Logical. If TRUE, NULL is accepted. Default is TRUE.
+#'
+#' @return The validated year as integer, or NULL if allow_null=TRUE and input is NULL.
+#'
+#' @keywords internal
+.validate_year <- function(year, allow_null = TRUE) {
+  if (is.null(year)) {
+    if (isTRUE(allow_null)) {
+      return(NULL)
+    } else {
+      stop("Year cannot be NULL.")
+    }
+  }
+
+  year_int <- suppressWarnings(as.integer(year))
+
+  if (is.na(year_int)) {
+    stop("Year must be a valid integer.")
+  }
+
+  current_year <- as.integer(format(Sys.Date(), "%Y"))
+
+  if (year_int < 1800) {
+    stop("Year must be 1800 or later (received: ", year_int, ").")
+  }
+
+  if (year_int > current_year + 1) {
+    warning(
+      "Year ", year_int, " is in the future. Station data may not be available. ",
+      "Proceeding with caution.",
+      call. = FALSE
+    )
+  }
+
+  year_int
+}
+
+#' Check available disk space
+#'
+#' Verifies that the output directory has sufficient free space for the estimated download.
+#'
+#' @param out_dir Character. Path to output directory.
+#' @param estimated_bytes Numeric. Estimated download size in bytes.
+#' @param buffer_percent Numeric. Extra buffer to require (default: 10, meaning 10% extra).
+#'
+#' @return Logical TRUE if sufficient space available, otherwise stops with error.
+#'
+#' @keywords internal
+.check_disk_space <- function(out_dir, estimated_bytes, buffer_percent = 10) {
+  if (!dir.exists(out_dir)) {
+    tryCatch({
+      dir.create(out_dir, recursive = TRUE)
+    }, error = function(e) {
+      stop("Could not create output directory: ", out_dir, "\n", e$message)
+    })
+  }
+
+  # Get disk info using shell command (works on Windows/Linux/Mac)
+  disk_info <- tryCatch({
+    if (.Platform$OS.type == "windows") {
+      # Windows: use fsutil
+      cmd_result <- system(paste('fsutil volume diskfree', gsub("/", "\\", out_dir, fixed = TRUE)),
+                          intern = TRUE, ignore.stderr = TRUE)
+      if (length(cmd_result) > 0) {
+        # Extract bytes available from fsutil output
+        matches <- regmatches(cmd_result, regexpr("[0-9]+$", cmd_result))
+        if (length(matches) > 0) {
+          as.numeric(matches[[1]])
+        } else {
+          NULL
+        }
+      } else {
+        NULL
+      }
+    } else {
+      # Unix/Linux/Mac: use df
+      df_output <- system(paste("df", out_dir), intern = TRUE)
+      lines <- strsplit(df_output[[length(df_output)]], "[[:space:]]+")[[1]]
+      as.numeric(lines[4]) * 1024  # Convert to bytes
+    }
+  }, error = function(e) {
+    NULL
+  })
+
+  if (is.null(disk_info) || disk_info <= 0) {
+    warning(
+      "Could not determine available disk space. Proceeding without disk space check.",
+      call. = FALSE
+    )
+    return(TRUE)
+  }
+
+  required_bytes <- estimated_bytes * (1 + buffer_percent / 100)
+
+  if (disk_info < required_bytes) {
+    available_gb <- round(disk_info / (1024 ^ 3), 2)
+    required_gb <- round(required_bytes / (1024 ^ 3), 2)
+    stop(
+      "Insufficient disk space in '", out_dir, "'.\n",
+      "  Available: ", available_gb, " GB\n",
+      "  Required (with buffer): ", required_gb, " GB"
+    )
+  }
+
+  invisible(TRUE)
+}
