@@ -10,7 +10,8 @@ download_station_province(
   out_dir = NULL,
   first_year = NULL,
   last_year = NULL,
-  parallel = FALSE
+  parallel = FALSE,
+  confirm = FALSE
 )
 }
 \arguments{
@@ -27,6 +28,10 @@ If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{parallel}{Logical. If \code{TRUE}, stations are downloaded in parallel
 using \code{furrr::future_walk}. Default is \code{FALSE}.}
+
+\item{confirm}{Logical. If \code{FALSE} (default), displays estimated download
+size and requests user confirmation. If \code{TRUE}, skips the confirmation
+prompt and proceeds with download.}
 }
 \value{
 Invisibly returns \code{NULL}.
@@ -37,6 +42,9 @@ hourly data for each.
 }
 \details{
 Could trigger a very large number of downloads.
+By default, an estimated file count and space requirement is shown before
+downloading begins. Set \code{confirm = TRUE} to skip this warning.
+
 Backward compatibility note: old positional calls of the form
 \code{download_station_province(station_data, out_dir, province, ...)}
 are still supported with a deprecation warning.

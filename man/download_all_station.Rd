@@ -9,7 +9,8 @@ download_all_station(
   out_dir = NULL,
   first_year = NULL,
   last_year = NULL,
-  parallel = FALSE
+  parallel = FALSE,
+  confirm = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{parallel}{Logical. If \code{TRUE}, stations are downloaded in parallel
 using \code{furrr::future_pwalk}. Default is \code{FALSE}.}
+
+\item{confirm}{Logical. If \code{FALSE} (default), displays estimated download
+size and requests user confirmation. If \code{TRUE}, skips the confirmation
+prompt and proceeds with download.}
 }
 \value{
 Invisibly returns \code{NULL}.
@@ -35,4 +40,6 @@ hourly data for each from Environment Canada website.
 }
 \details{
 Use with caution — this will trigger a very large number of downloads.
+By default, an estimated file count and space requirement is shown before
+downloading begins. Set \code{confirm = TRUE} to skip this warning.
 }

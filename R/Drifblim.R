@@ -30,6 +30,12 @@ download_station_month <- function(station_data = NULL,
                                    station_id = NULL,
                                    downloader = download.file,
                                    sleeper = Sys.sleep) {
+  # Validate month early with user-friendly message
+  month <- as.integer(month)
+  if (is.na(month) || month < 1 || month > 12) {
+    stop("Invalid month! Month must be between 1 and 12.")
+  }
+
   out_dir <- .resolve_out_dir(out_dir)
 
   if (is.null(station_data)) {
@@ -74,218 +80,6 @@ download_station_month <- function(station_data = NULL,
     downloader = downloader,
     sleeper = sleeper
   )
-}
-
-#' Download one station file by station-year-month
-#'
-#' Internal helper used by wrappers and station-level downloader.
-#'
-#' @param station_id Numeric. The station ID.
-#' @param station_name Character. Station name (used for file naming).
-#' @param station_folder Character. Directory where files will be saved.
-#' @param year Numeric. Year to download.
-#' @param month Numeric. Month to download (1–12).
-#' @param downloader Function. Download function.
-#' @param sleeper Function. Sleep function for throttling.
-#'
-#' @return Invisibly returns \code{TRUE} if successful, \code{FALSE} otherwise.
-#'
-#' @keywords internal
-.download_station_month_file <- function(station_id, station_name, station_folder,
-                                         year, month, downloader = download.file,
-                                         sleeper = Sys.sleep) {
-  year <- as.integer(year)
-  month <- as.integer(month)
-
-  if (is.na(year) || is.na(month) || month < 1 || month > 12) {
-    stop("year/month must be valid integers and month must be in 1:12.")
-  }
-
-  url <- paste0(
-    "https://climate.weather.gc.ca/climate_data/bulk_data_e.html?format=csv",
-    "&stationID=", station_id,
-    "&Year=", year,
-    "&Month=", month,
-    "&Day=14&timeframe=1"
-  )
-
-  dest_file <- file.path(
-    station_folder,
-    paste0(station_name, "_", year, "_", sprintf("%02d", as.integer(month)), ".csv")
-  )
-
-  # If file already exists skip it
-  if (file.exists(dest_file) && file.info(dest_file)$size > 0) {
-    message("Skipping existing file: ", basename(dest_file))
-    return(invisible(TRUE))
-  }
-
-  # download the governments files :3 (with error handling)
-  success <- tryCatch({
-    downloader(url, destfile = dest_file, mode = "wb", quiet = TRUE)
-    TRUE
-  }, error = function(e) {
-    message("Download failed: ", basename(dest_file))
-    message("Reason: ", e$message)
-    FALSE
-  })
-  # check if download is valid
-  if (!success) {
-    message("Invalid or corrupted file: ", basename(dest_file))
-    if (file.exists(dest_file)) file.remove(dest_file)
-    return(invisible(FALSE))
-  }
-  # self throttling to not get banned
-  sleeper(0.3)
-  invisible(TRUE)
-}
-
-#' Resolve output directory
-#'
-#' Internal helper that resolves and creates the default output directory when
-#' one is not provided.
-#'
-#' @param out_dir Character. User-provided output directory or \code{NULL}.
-#'
-#' @return Character path to a valid output directory.
-#'
-#' @keywords internal
-.resolve_out_dir <- function(out_dir = NULL) {
-  if (is.null(out_dir)) {
-    out_dir <- file.path(getwd(), "drifloon_output")
-  }
-
-  if (!is.character(out_dir) || length(out_dir) != 1 || !nzchar(out_dir)) {
-    stop("out_dir must be a single, non-empty character path.")
-  }
-
-  if (!dir.exists(out_dir)) {
-    dir.create(out_dir, recursive = TRUE)
-  }
-
-  out_dir
-}
-
-#' Download full available hourly dataset for a single station
-#'
-#' @param station List or named vector containing station metadata.
-#'   Must include \code{Station.ID}, \code{Name}, \code{Province},
-#'   \code{HLY.First.Year}, and \code{HLY.Last.Year}.
-#' @param out_dir Character. Base directory where station folders will be created.
-#'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}. 
-#' @param first_year Numeric. First year to download (default: station metadata).
-#' @param last_year Numeric. Last year to download (default: station metadata).
-#' @param parallel Logical. If \code{TRUE}, downloads months in parallel using
-#'   \code{furrr::future_pwalk}. Default is \code{FALSE}.
-#'
-#' @return Invisibly returns \code{NULL}.
-#'
-#' @details
-#' Year ranges are validated against station metadata. If requested years
-#' exceed available data, they are automatically adjusted.
-#'
-#' Data are downloaded for each year-month pair (months 1 through 12),
-#' sequentially by default or in parallel when \code{parallel = TRUE}.
-#'
-#' @keywords internal
-download_station <- function(station, out_dir = NULL, first_year = NULL, last_year = NULL,
-                             parallel = FALSE) {
-
-  out_dir <- .resolve_out_dir(out_dir)
-
-  station_id   <- station$Station.ID
-  station_name <- gsub(" ", "_", station$Name)
-
-  # Metadata range
-  meta_first <- as.numeric(station$HLY.First.Year)
-  meta_last  <- as.numeric(station$HLY.Last.Year)
-
-  # Use metadata if not provided
-  begin_year <- if (is.null(first_year)) meta_first else as.numeric(first_year)
-  end_year   <- if (is.null(last_year))  meta_last  else as.numeric(last_year)
-
-  # Range validation
-  if (begin_year < meta_first) {
-    message(
-      "Requested start year (", begin_year,
-      ") is earlier than available data (", meta_first,
-      "). Defaulting to ", meta_first, "."
-    )
-    begin_year <- meta_first
-  }
-
-  if (end_year > meta_last) {
-    message(
-      "Requested end year (", end_year,
-      ") is later than available data (", meta_last,
-      "). Defaulting to ", meta_last, "."
-    )
-    end_year <- meta_last
-  }
-  # If user does something stupid
-  if (begin_year > end_year) {
-    stop("No valid years to download after adjusting to station data range.")
-  }
-
-  years <- seq(begin_year, end_year)
-  months <- 1:12
-
-  station_folder <- file.path(out_dir, station_name)
-  if (!dir.exists(station_folder)) dir.create(station_folder, recursive = TRUE)
-
-  combos <- expand.grid(
-    year = years,
-    month = months,
-    KEEP.OUT.ATTRS = FALSE,
-    stringsAsFactors = FALSE
-  )
-
-  if (isTRUE(parallel)) {
-    furrr::future_walk(seq_len(nrow(combos)), function(i) {
-      .download_station_month_file(
-        station_id,
-        station_name,
-        station_folder,
-        combos$year[[i]],
-        combos$month[[i]]
-      )
-    })
-  } else {
-    for (year_i in years) {
-      for (month_i in months) {
-        .download_station_month_file(
-          station_id,
-          station_name,
-          station_folder,
-          year_i,
-          month_i
-        )
-      }
-    }
-  }
-}
-
-#' Load packaged station metadata
-#'
-#' Internal helper used by download wrappers when 
-#' \code{station_data} is not supplied.
-#'
-#' @return Data frame of station metadata.
-#'
-#' @keywords internal
-.load_station_metadata <- function() {
-  data_path <- system.file("data", "HLY_station_info.rds", package = "Drifloon")
-
-  if (nzchar(data_path) && file.exists(data_path)) {
-    return(readRDS(data_path))}
-
-  local_path <- file.path("data", "HLY_station_info.rds")
-
-  if (file.exists(local_path)) {
-    return(readRDS(local_path))}
-  stop(
-    "Could not find station metadata. Provide station_data explicitly or add data/HLY_station_info.rds."
-    )
 }
 
 #' Download station data by name or station ID
@@ -355,71 +149,6 @@ download_station_by_name <- function(station_name = NULL,
   )
 }
 
-#' Normalize province input
-#'
-#' Converts province names or abbreviations to standardized
-#' uppercase full province or territory names.
-#'
-#' @param province Character vector of province names or abbreviations.
-#'
-#' @return Character vector of normalized province names in uppercase
-#'   (for example, \code{"BRITISH COLUMBIA"}).
-#'
-#' @keywords internal
-.province_normalize <- function(province, strict = TRUE) {
-  province_lookup <- c(
-    "AB" = "ALBERTA",
-    "ALBERTA" = "ALBERTA",
-    "BC" = "BRITISH COLUMBIA",
-    "BRITISH COLOMBIA" = "BRITISH COLUMBIA",
-    "BRITISH COLUMBIA" = "BRITISH COLUMBIA",
-    "MB" = "MANITOBA",
-    "MANITOBA" = "MANITOBA",
-    "NB" = "NEW BRUNSWICK",
-    "NEW BRUNSWICK" = "NEW BRUNSWICK",
-    "NL" = "NEWFOUNDLAND AND LABRADOR",
-    "NF" = "NEWFOUNDLAND AND LABRADOR",
-    "NEWFOUNDLAND" = "NEWFOUNDLAND AND LABRADOR",
-    "NEWFOUNDLAND AND LABRADOR" = "NEWFOUNDLAND AND LABRADOR",
-    "NS" = "NOVA SCOTIA",
-    "NOVA SCOTIA" = "NOVA SCOTIA",
-    "ON" = "ONTARIO",
-    "ONTARIO" = "ONTARIO",
-    "PE" = "PRINCE EDWARD ISLAND",
-    "PEI" = "PRINCE EDWARD ISLAND",
-    "PRINCE EDWARD ISLAND" = "PRINCE EDWARD ISLAND",
-    "QC" = "QUEBEC",
-    "PQ" = "QUEBEC",
-    "QUEBEC" = "QUEBEC",
-    "SK" = "SASKATCHEWAN",
-    "SASKATCHEWAN" = "SASKATCHEWAN",
-    "NU" = "NUNAVUT",
-    "NUNAVUT" = "NUNAVUT",
-    "NT" = "NORTHWEST TERRITORIES",
-    "NWT" = "NORTHWEST TERRITORIES",
-    "NORTHWEST TERRITORIES" = "NORTHWEST TERRITORIES",
-    "YT" = "YUKON",
-    "YUKON" = "YUKON",
-    "YUKON TERRITORY" = "YUKON"
-  )
-
-  province_key <- trimws(toupper(province))
-  province_key <- gsub("[[:space:]]+", " ", province_key)
-
-  normalized <- unname(province_lookup[province_key])
-  if (isTRUE(strict) && any(is.na(normalized))) {
-    canonical <- unique(unname(province_lookup[nchar(names(province_lookup)) > 2]))
-    stop(
-      paste0(
-        "Invalid province. Choose one of: ",
-        paste(canonical, collapse = ", ")
-      )
-    )
-  }
-
-  normalized
-}
-
 #' Download data for all stations in a province
 #'
 #' Iterates over all stations in a selected province and downloads
@@ -433,11 +162,17 @@ download_station_by_name <- function(station_name = NULL,
 #' @param last_year Numeric. Optional ending year.
 #' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
 #'   using \code{furrr::future_walk}. Default is \code{FALSE}.
+#' @param confirm Logical. If \code{FALSE} (default), displays estimated download
+#'   size and requests user confirmation. If \code{TRUE}, skips the confirmation
+#'   prompt and proceeds with download.
 #'
 #' @return Invisibly returns \code{NULL}.
 #'
 #' @details
 #' Could trigger a very large number of downloads.
+#' By default, an estimated file count and space requirement is shown before
+#' downloading begins. Set \code{confirm = TRUE} to skip this warning.
+#'
 #' Backward compatibility note: old positional calls of the form
 #' \code{download_station_province(station_data, out_dir, province, ...)}
 #' are still supported with a deprecation warning.
@@ -448,7 +183,8 @@ download_station_province <- function(province,
                                       out_dir = NULL,
                                       first_year = NULL,
                                       last_year = NULL,
-                                      parallel = FALSE) {
+                                      parallel = FALSE,
+                                      confirm = FALSE) {
 
   # Backward-compatible support for legacy positional signature:
   # download_station_province(station_data, out_dir, province, ...)
@@ -485,6 +221,27 @@ download_station_province <- function(province,
     stop("No stations found for province: ", province_name)
   }
 
+  # Estimate and warn about download size
+  if (!isTRUE(confirm)) {
+    estimate <- .estimate_download_size(stations, first_year, last_year)
+    message("\n=== Download Estimate ===")
+    message("Province: ", province_name)
+    message("Stations: ", nrow(stations))
+    message("Years: ", estimate$years)
+    message("Estimated files: ", estimate$count)
+    if (estimate$size_gb >= 1) {
+      message("Estimated space: ", estimate$size_gb, " GB")
+    } else {
+      message("Estimated space: ", estimate$size_mb, " MB")
+    }
+    message("=====================\n")
+    response <- readline(prompt = "Continue with download? (yes/no): ")
+    if (!tolower(trimws(response)) %in% c("yes", "y")) {
+      message("Download cancelled.")
+      return(invisible(NULL))
+    }
+  }
+
   station_rows <- lapply(seq_len(nrow(stations)), function(i) {
     as.list(stations[i, , drop = FALSE])
   })
@@ -516,19 +273,44 @@ download_station_province <- function(province,
 #' @param last_year Numeric. Optional ending year.
 #' @param parallel Logical. If \code{TRUE}, stations are downloaded in parallel
 #'   using \code{furrr::future_pwalk}. Default is \code{FALSE}.
+#' @param confirm Logical. If \code{FALSE} (default), displays estimated download
+#'   size and requests user confirmation. If \code{TRUE}, skips the confirmation
+#'   prompt and proceeds with download.
 #'
 #' @return Invisibly returns \code{NULL}.
 #'
 #' @details
 #' Use with caution — this will trigger a very large number of downloads.
+#' By default, an estimated file count and space requirement is shown before
+#' downloading begins. Set \code{confirm = TRUE} to skip this warning.
 #'
 #' @export
 download_all_station <- function(station_data = NULL, out_dir = NULL, first_year = NULL,
-                                 last_year = NULL, parallel = FALSE) {
+                                 last_year = NULL, parallel = FALSE, confirm = FALSE) {
   out_dir <- .resolve_out_dir(out_dir)
 
   if (is.null(station_data)) {
     station_data <- .load_station_metadata()
+  }
+
+  # Estimate and warn about download size
+  if (!isTRUE(confirm)) {
+    estimate <- .estimate_download_size(station_data, first_year, last_year)
+    message("\n=== Download Estimate ===")
+    message("Total stations: ", nrow(station_data))
+    message("Years: ", estimate$years)
+    message("Estimated files: ", estimate$count)
+    if (estimate$size_gb >= 1) {
+      message("Estimated space: ", estimate$size_gb, " GB")
+    } else {
+      message("Estimated space: ", estimate$size_mb, " MB")
+    }
+    message("=====================\n")
+    response <- readline(prompt = "Continue with download? (yes/no): ")
+    if (!tolower(trimws(response)) %in% c("yes", "y")) {
+      message("Download cancelled.")
+      return(invisible(NULL))
+    }
   }
 
   walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
