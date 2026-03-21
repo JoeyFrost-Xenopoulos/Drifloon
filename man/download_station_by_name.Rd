@@ -42,4 +42,6 @@ either its name or station ID.
 \details{
 Either \code{station_name} or \code{station_id} must be provided.
 If both are provided, \code{station_name} takes precedence.
+If \code{first_year} or \code{last_year} are outside the station metadata
+range (\code{HLY.First.Year} to \code{HLY.Last.Year}), an error is thrown.
 }

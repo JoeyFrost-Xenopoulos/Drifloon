@@ -44,8 +44,4 @@ hourly data for each.
 Could trigger a very large number of downloads.
 By default, an estimated file count and space requirement is shown before
 downloading begins. Set \code{confirm = TRUE} to skip this warning.
-
-Backward compatibility note: old positional calls of the form
-\code{download_station_province(station_data, out_dir, province, ...)}
-are still supported with a deprecation warning.
 }

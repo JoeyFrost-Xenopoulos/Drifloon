@@ -2,15 +2,14 @@
 #'
 #' Downloads one month of hourly climate data for a station selected by name
 #' or station ID.
-#'
-#' @param station_data Data frame containing station metadata. Optional;
-#'   if omitted, packaged metadata is loaded automatically.
+#' @param station_name Character. Station name (optional).
 #' @param out_dir Character. Base output directory.
 #'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
 #' @param year Numeric. Year to download.
 #' @param month Numeric. Month to download (1–12).
-#' @param station_name Character. Station name (optional).
 #' @param station_id Numeric. Station ID (optional).
+#' @param station_data Data frame containing station metadata. Optional;
+#'   if omitted, packaged metadata is loaded automatically.
 #' @param downloader Function. Download function (default: \code{download.file}).
 #'   Useful for testing/mocking (testthat).
 #' @param sleeper Function. Sleep function for throttling (default: \code{Sys.sleep}).
@@ -22,15 +21,15 @@
 #' If both are provided, \code{station_name} takes precedence.
 #'
 #' @export
-download_station_month <- function(station_data = NULL,
+download_station_month <- function(station_name = NULL,
                                    out_dir = NULL,
                                    year,
                                    month,
-                                   station_name = NULL,
                                    station_id = NULL,
+                                   station_data = NULL,
                                    downloader = download.file,
                                    sleeper = Sys.sleep) {
-  # Validate month early with user-friendly message
+  year <- .validate_year(year, allow_null = FALSE)
   month <- as.integer(month)
   if (is.na(month) || month < 1 || month > 12) {
     stop("Invalid month! Month must be between 1 and 12.")
@@ -68,6 +67,20 @@ download_station_month <- function(station_data = NULL,
   station <- station_data[idx[1], ]
   station_id <- station$Station.ID
   station_name <- gsub(" ", "_", station$Name)
+  meta_first <- as.numeric(station$HLY.First.Year)
+  meta_last <- as.numeric(station$HLY.Last.Year)
+
+  if (is.na(meta_first) || is.na(meta_last)) {
+    stop("Station metadata must include valid HLY.First.Year and HLY.Last.Year values.")
+  }
+
+  if (year < meta_first || year > meta_last) {
+    stop(
+      "Requested year (", year, ") is outside available range (",
+      meta_first, "-", meta_last, ") for station ", station_name, "."
+    )
+  }
+
   station_folder <- file.path(out_dir, station_name)
   if (!dir.exists(station_folder)) dir.create(station_folder, recursive = TRUE)
 
@@ -103,6 +116,8 @@ download_station_month <- function(station_data = NULL,
 #' @details
 #' Either \code{station_name} or \code{station_id} must be provided.
 #' If both are provided, \code{station_name} takes precedence.
+#' If \code{first_year} or \code{last_year} are outside the station metadata
+#' range (\code{HLY.First.Year} to \code{HLY.Last.Year}), an error is thrown.
 #'
 #' @export
 download_station_by_name <- function(station_name = NULL,
@@ -173,9 +188,6 @@ download_station_by_name <- function(station_name = NULL,
 #' By default, an estimated file count and space requirement is shown before
 #' downloading begins. Set \code{confirm = TRUE} to skip this warning.
 #'
-#' Backward compatibility note: old positional calls of the form
-#' \code{download_station_province(station_data, out_dir, province, ...)}
-#' are still supported with a deprecation warning.
 #'
 #' @export
 download_station_province <- function(province,
@@ -316,30 +328,49 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
   walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
 
   walker(station_data, function(...) {
-    # Avoid nested futures by keeping per-station downloads sequential here.
     download_station(list(...), out_dir, first_year, last_year, parallel = FALSE)
   })
+}
+
+#' Sync station metadata from official inventory
+#'
+#' User-facing wrapper around internal sync logic.
+#'
+#' @param ... Additional arguments passed to [Drifloon:::.sync_station_metadata()].
+#'
+#' @return Invisibly returns sync status details as a list.
+#'
+#' @export
+sync_metadata <- function(...) {
+  .sync_station_metadata(...)
 }
 
 #' Load station metadata
 #'
 #' Loads the hourly station metadata included with the package.
 #'
+#' @param sync Logical. If \code{TRUE}, metadata is synced from the official
+#'   station inventory before loading. Default is \code{FALSE}.
+#' @param ... Additional arguments passed to [sync_metadata()] when
+#'   \code{sync = TRUE}.
+#'
 #' @return Data frame of station metadata.
 #'
 #' @details
-#' The metadata is loaded from the packaged file
-#' \code{data/HLY_station_info.rds}.
+#' Metadata is loaded using internal package/local metadata resolution.
+#' Set \code{sync = TRUE} to refresh metadata first.
 #'
 #' @export
-load_metadata <- function() {
-  data_path <- system.file("data", "HLY_station_info.rds", package = "Drifloon")
-
-  if (!nzchar(data_path) || !file.exists(data_path)) {
-    stop("Could not find station metadata.")
+load_metadata <- function(sync = FALSE, ...) {
+  if (!is.logical(sync) || length(sync) != 1 || is.na(sync)) {
+    stop("sync must be TRUE or FALSE.")
   }
 
-  readRDS(data_path)
+  if (isTRUE(sync)) {
+    sync_metadata(...)
+  }
+
+  .load_station_metadata()
 }
 
 #' Copy packaged metadata file to disk

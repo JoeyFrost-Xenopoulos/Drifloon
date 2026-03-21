@@ -133,3 +133,28 @@ test_that("download_station_month removes partial file on error", {
   expect_false(file.exists(dest))
   expect_false(sleeper_called)
 })
+
+test_that("download_station_month errors when year is outside station metadata range", {
+  tmp <- tempfile("drifloon-month-")
+  dir.create(tmp, recursive = TRUE)
+
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2005,
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    Drifloon::download_station_month(
+      station_data = station_data,
+      out_dir = tmp,
+      year = 1999,
+      month = 7,
+      station_id = 31688
+    ),
+    "outside available range"
+  )
+})

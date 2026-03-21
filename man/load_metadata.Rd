@@ -4,7 +4,14 @@
 \alias{load_metadata}
 \title{Load station metadata}
 \usage{
-load_metadata()
+load_metadata(sync = FALSE, ...)
+}
+\arguments{
+\item{sync}{Logical. If \code{TRUE}, metadata is synced from the official
+station inventory before loading. Default is \code{FALSE}.}
+
+\item{...}{Additional arguments passed to [sync_metadata()] when
+\code{sync = TRUE}.}
 }
 \value{
 Data frame of station metadata.
@@ -13,6 +20,6 @@ Data frame of station metadata.
 Loads the hourly station metadata included with the package.
 }
 \details{
-The metadata is loaded from the packaged file
-\code{data/HLY_station_info.rds}.
+Metadata is loaded using internal package/local metadata resolution.
+Set \code{sync = TRUE} to refresh metadata first.
 }

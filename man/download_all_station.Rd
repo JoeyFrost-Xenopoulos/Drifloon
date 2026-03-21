@@ -39,7 +39,7 @@ Iterates over all stations in a metadata data frame and downloads
 hourly data for each from Environment Canada website.
 }
 \details{
-Use with caution — this will trigger a very large number of downloads.
+Use with caution, this will trigger a very large number of downloads.
 By default, an estimated file count and space requirement is shown before
 downloading begins. Set \code{confirm = TRUE} to skip this warning.
 }

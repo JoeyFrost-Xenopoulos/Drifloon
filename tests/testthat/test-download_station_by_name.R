@@ -205,3 +205,28 @@ test_that("download_station_by_name defaults out_dir to working directory folder
   )
   expect_true(dir.exists(captured_out_dir))
 })
+
+test_that("download_station_by_name errors when requested years are outside station range", {
+  station_data <- data.frame(
+    Name = "A Station",
+    Station.ID = 10,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2005,
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- tempfile("drifloon-year-range-")
+  dir.create(out_dir)
+
+  expect_error(
+    Drifloon:::download_station_by_name(
+      station_data = station_data,
+      out_dir = out_dir,
+      station_id = 10,
+      first_year = 1999,
+      last_year = 2004
+    ),
+    "outside available data"
+  )
+})

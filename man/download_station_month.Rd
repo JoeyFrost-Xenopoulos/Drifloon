@@ -5,19 +5,18 @@
 \title{Download hourly climate data for a single station-year-month}
 \usage{
 download_station_month(
-  station_data = NULL,
+  station_name = NULL,
   out_dir = NULL,
   year,
   month,
-  station_name = NULL,
   station_id = NULL,
+  station_data = NULL,
   downloader = download.file,
   sleeper = Sys.sleep
 )
 }
 \arguments{
-\item{station_data}{Data frame containing station metadata. Optional;
-if omitted, packaged metadata is loaded automatically.}
+\item{station_name}{Character. Station name (optional).}
 
 \item{out_dir}{Character. Base output directory.
 If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
@@ -26,9 +25,10 @@ If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
 
 \item{month}{Numeric. Month to download (1–12).}
 
-\item{station_name}{Character. Station name (optional).}
-
 \item{station_id}{Numeric. Station ID (optional).}
+
+\item{station_data}{Data frame containing station metadata. Optional;
+if omitted, packaged metadata is loaded automatically.}
 
 \item{downloader}{Function. Download function (default: \code{download.file}).
 Useful for testing/mocking (testthat).}

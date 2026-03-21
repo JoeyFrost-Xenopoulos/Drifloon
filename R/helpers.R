@@ -214,7 +214,7 @@
 #'
 #' @param out_dir Character. Path to output directory.
 #' @param estimated_bytes Numeric. Estimated download size in bytes.
-#' @param buffer_percent Numeric. Extra buffer to require (default: 10, meaning 10% extra).
+#' @param buffer_percent Numeric. Extra buffer to require (default: 10, meaning 10\% extra).
 #'
 #' @return Logical TRUE if sufficient space available, otherwise stops with error.
 #'

@@ -76,15 +76,7 @@ test_that("download_station uses furrr::future_walk when parallel is TRUE", {
   expect_equal(calls, 24)
 })
 
-test_that("download_station clamps years to station metadata bounds", {
-  years_seen <- integer(0)
-
-  fake_download_station_month <- function(station_id, station_name, station_folder, year, month,
-                                          downloader = download.file, sleeper = Sys.sleep) {
-    years_seen <<- c(years_seen, year)
-    invisible(TRUE)
-  }
-
+test_that("download_station errors when requested range is outside station metadata bounds", {
   station <- list(
     Station.ID = 1,
     Name = "Test Station",
@@ -96,21 +88,16 @@ test_that("download_station clamps years to station metadata bounds", {
   out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-  local_mocked_bindings(
-    .download_station_month_file = fake_download_station_month,
-    .package = "Drifloon"
+  expect_error(
+    Drifloon:::download_station(
+      station = station,
+      out_dir = out_dir,
+      first_year = 1995,
+      last_year = 2010,
+      parallel = FALSE
+    ),
+    "outside available data"
   )
-
-  Drifloon:::download_station(
-    station = station,
-    out_dir = out_dir,
-    first_year = 1995,
-    last_year = 2010,
-    parallel = FALSE
-  )
-
-  expect_true(all(years_seen %in% 2000:2002))
-  expect_equal(length(years_seen), 36)
 })
 
 test_that("download_station errors when adjusted range is invalid", {
@@ -129,8 +116,8 @@ test_that("download_station errors when adjusted range is invalid", {
     Drifloon:::download_station(
       station = station,
       out_dir = out_dir,
-      first_year = 2010,
-      last_year = 2011
+      first_year = 2004,
+      last_year = 2003
     ),
     "No valid years"
   )
