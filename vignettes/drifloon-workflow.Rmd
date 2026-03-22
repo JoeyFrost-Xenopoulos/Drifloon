@@ -1,0 +1,221 @@
+---
+title: "Introduction to Drifloon"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to Drifloon}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE
+)
+```
+
+## Overview
+
+The Drifloon package helps you download Canadian hourly weather station data 
+from the Environment and Climate Change Canada portal.
+
+Core functions:
+
+- `load_metadata()`: Load station inventory used by all download wrappers.
+- `sync_metadata()`: Checks and updates metadata from the official station inventory CSV.
+- `download_station_month()`: Download one station, one year, one month.
+- `download_station_by_name()`: Download one station for a year range.
+- `download_station_province()`: Download all stations in one province.
+- `download_all_station()`: Download all stations in your metadata.
+- `download_metadata()`: Copy packaged metadata `.rds` to your output folder.
+
+## Load metadata
+
+```{r}
+library(Drifloon)
+
+meta <- load_metadata()
+head(meta[, c("Name", "Province", "Station.ID", "HLY.First.Year", "HLY.Last.Year")])
+```
+
+The metadata frame is expected to include these key columns:
+
+- `Name`: The name of the station. Note: some stations have the same name but different station ids.
+- `Province`: The Province of the station. 
+- `Station.ID`: The unique identifier for each station
+- `HLY.First.Year`: The first year with available hourly data
+- `HLY.Last.Year`: The last year with available hourly data
+
+## Sync metadata from source inventory
+
+Use `sync_metadata()` to pull the most recent station metadata and update local
+metadata. This will only change when new station metadata is available.
+
+```{r, eval = FALSE}
+# Typical sync with defaults
+sync_result <- sync_metadata()
+str(sync_result)
+
+# Example with tighter filtering and backup control
+sync_result <- sync_metadata(
+  provinces = c("ON", "QC"),
+  min_year = 2000,
+  create_backup = TRUE,
+  max_backup_bytes = 25 * 1024^2
+)
+```
+
+If you want this to happen during load, use:
+
+```{r, eval = FALSE}
+meta <- load_metadata(sync = TRUE)
+```
+
+## Download metadata snapshot
+
+If you want a local copy of packaged metadata, use `download_metadata()`.
+
+```{r, eval = FALSE}
+metadata_path <- download_metadata(out_dir = "drifloon_output", overwrite = TRUE)
+metadata_path
+```
+
+## Download a single month first
+
+Start small to verify names, IDs, output paths. The default download directory is in the root of your current working directory in a folder `drifloon_output/`.
+
+```{r, eval = FALSE}
+# By station name
+ok <- download_station_month(
+  station_name = "TORONTO CITY",
+  year = 2020,
+  month = 1,
+  out_dir = "drifloon_output"
+)
+
+# By station ID (useful when names are duplicated)
+ok <- download_station_month(
+  station_id = 31688,
+  year = 2020,
+  month = 1,
+  out_dir = "drifloon_output"
+)
+```
+
+## Download a station across a year range
+
+Here we are asking for the station data for every month of the year range 2018 to
+2020. Note you can use the `parallel=TRUE` argument if you want to parallelize 
+download, which could make it faster. 
+
+```{r, eval = FALSE}
+download_station_by_name(
+  station_name = "TORONTO CITY",
+  first_year = 2018,
+  last_year = 2020,
+  out_dir = "drifloon_output",
+  parallel = FALSE
+)
+```
+
+There are multiple stations with the same name. In this case pass both 
+`station_name` and `station_id` to force a specific match.
+
+## Download by province
+
+Because of how large the download of `download_station_province()` typically is,
+it estimates total files and storage first. 
+
+```{r, eval = FALSE}
+# Interactive confirmation (default)
+download_station_province(
+  province = "ON",
+  first_year = 2019,
+  last_year = 2020,
+  out_dir = "drifloon_output"
+)
+
+# Non-interactive workflows (scripts/CI)
+download_station_province(
+  province = "ON",
+  first_year = 2019,
+  last_year = 2020,
+  out_dir = "drifloon_output",
+  confirm = TRUE
+)
+```
+
+## Download all stations
+
+Use cautiously: this can generate very large downloads.
+
+```{r, eval = FALSE}
+download_all_station(
+  first_year = 2019,
+  last_year = 2020,
+  out_dir = "drifloon_output",
+  confirm = TRUE
+)
+```
+
+## Helper internals and how they support the API
+
+Drifloon includes internal helpers (not exported) that make wrappers safer and
+more predictable:
+
+- Metadata and paths:
+  - `.load_station_metadata()`
+  - `.resolve_out_dir()`
+  - `.sync_station_metadata()`
+- Name and province resolution:
+  - `.normalize_station_name_key()`
+  - `.find_station_name_index()`
+  - `.province_normalize()`
+- Validation and safety:
+  - `.validate_year()`
+  - `.estimate_download_size()`
+  - `.check_disk_space()`
+  - `.is_valid_downloaded_month_file()`
+
+You can inspect internals for debugging with triple-colon access:
+
+```{r, eval = FALSE}
+Drifloon:::.normalize_station_name_key(c("Montréal/Trudeau", "Montreal Trudeau"))
+Drifloon:::.province_normalize(c("on", "Ontario", "QC"))
+```
+
+## Typical end-to-end workflow
+
+```{r, eval = FALSE}
+library(Drifloon)
+
+# 1) Refresh metadata
+sync_metadata(provinces = c("ON", "QC"), min_year = 2000)
+
+# 2) Load filtered metadata
+meta <- load_metadata()
+
+# 3) Validate one month first
+download_station_month(
+  station_name = "TORONTO CITY",
+  year = 2020,
+  month = 1,
+  out_dir = "drifloon_output"
+)
+
+# 4) Scale to a station range
+download_station_by_name(
+  station_name = "TORONTO CITY",
+  first_year = 2018,
+  last_year = 2020,
+  out_dir = "drifloon_output"
+)
+
+# 5) Scale to province only after checks
+download_station_province(
+  province = "ON",
+  first_year = 2019,
+  last_year = 2020,
+  out_dir = "drifloon_output",
+  confirm = TRUE
+)
+```
