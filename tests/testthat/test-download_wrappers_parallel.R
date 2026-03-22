@@ -80,7 +80,8 @@ test_that("download_station_province passes through furrr and disables nested pa
     station_data = station_data,
     out_dir = out_dir,
     province = "ON",
-    parallel = TRUE
+    parallel = TRUE,
+    confirm = TRUE
   )
 
   expect_true(used_future)
@@ -133,7 +134,8 @@ test_that("download_all_station passes through furrr and disables nested paralle
   Drifloon::download_all_station(
     station_data = station_data,
     out_dir = out_dir,
-    parallel = TRUE
+    parallel = TRUE,
+    confirm = TRUE
   )
 
   expect_true(used_future)
@@ -172,7 +174,8 @@ test_that("download_station_province sequential mode calls matching stations", {
     station_data = station_data,
     out_dir = out_dir,
     province = "ON",
-    parallel = FALSE
+    parallel = FALSE,
+    confirm = TRUE
   )
 
   expect_equal(sort(captured_ids), c(1, 3))
@@ -208,7 +211,8 @@ test_that("download_station_province accepts province as first positional argume
     "ON",
     station_data = station_data,
     out_dir = out_dir,
-    parallel = FALSE
+    parallel = FALSE,
+    confirm = TRUE
   )
 
   expect_equal(sort(captured_ids), c(1, 3))
@@ -245,7 +249,8 @@ test_that("download_station_province supports legacy positional order with warni
       station_data,
       out_dir,
       "ON",
-      parallel = FALSE
+      parallel = FALSE,
+      confirm = TRUE
     ),
     "Deprecated positional call"
   )
@@ -282,7 +287,8 @@ test_that("download_station_province loads metadata when station_data is NULL", 
   Drifloon::download_station_province(
     station_data = NULL,
     out_dir = out_dir,
-    province = "ON"
+    province = "ON",
+    confirm = TRUE
   )
 
   expect_equal(captured_ids, 1)
@@ -341,7 +347,8 @@ test_that("download_station_province requests every month for every year", {
     station_data = station_data,
     out_dir = out_dir,
     province = "BC",
-    parallel = FALSE
+    parallel = FALSE,
+    confirm = TRUE
   )
 
   expect_equal(nrow(calls), 24)
@@ -379,8 +386,126 @@ test_that("download_all_station sequential mode calls all stations", {
   Drifloon::download_all_station(
     station_data = station_data,
     out_dir = out_dir,
-    parallel = FALSE
+    parallel = FALSE,
+    confirm = TRUE
   )
 
   expect_equal(sort(captured_ids), c(1, 2, 3))
+})
+
+test_that("download_all_station runs disk-space safeguard before downloading", {
+  checked_bytes <- NULL
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  fake_check_disk_space <- function(out_dir, estimated_bytes, buffer_percent = 10) {
+    checked_bytes <<- estimated_bytes
+    TRUE
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "QC"),
+    HLY.First.Year = c(2000, 2000),
+    HLY.Last.Year = c(2000, 2000),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .check_disk_space = fake_check_disk_space,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_all_station(
+    station_data = station_data,
+    out_dir = out_dir,
+    parallel = FALSE,
+    confirm = TRUE
+  )
+
+  expect_true(checked_bytes > 0)
+  expect_equal(sort(captured_ids), c(1, 2))
+})
+
+test_that("download_station_province stops when disk-space safeguard fails", {
+  fake_check_disk_space <- function(...) {
+    stop("Insufficient disk space")
+  }
+
+  fake_download_station <- function(...) {
+    stop("download_station should not run when disk check fails")
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "ON"),
+    HLY.First.Year = c(2000, 2000),
+    HLY.Last.Year = c(2000, 2000),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    .check_disk_space = fake_check_disk_space,
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  expect_error(
+    Drifloon::download_station_province(
+      station_data = station_data,
+      out_dir = out_dir,
+      province = "ON",
+      parallel = FALSE,
+      confirm = TRUE
+    ),
+    "Insufficient disk space"
+  )
+})
+
+test_that("download_station_province does not run disk check when user cancels", {
+  fake_check_disk_space <- function(...) {
+    stop("disk check should not run when user cancels")
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "ON"),
+    HLY.First.Year = c(2000, 2000),
+    HLY.Last.Year = c(2000, 2000),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    .check_disk_space = fake_check_disk_space,
+    readline = function(...) "no",
+    .package = "Drifloon"
+  )
+
+  expect_no_error(
+    Drifloon::download_station_province(
+      station_data = station_data,
+      out_dir = out_dir,
+      province = "ON",
+      parallel = FALSE,
+      confirm = FALSE
+    )
+  )
 })

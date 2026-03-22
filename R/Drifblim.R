@@ -42,9 +42,11 @@ download_station_month <- function(station_name = NULL,
   }
 
   if (!is.null(station_name)) {
-    idx <- which(gsub(" ", "_", station_data$Name) == gsub(" ", "_", station_name))
+    idx_name <- .find_station_name_index(station_name, station_data)
+    idx <- .find_station_name_index(station_name, station_data, station_id = station_id)
+
     if (length(idx) > 1) {
-      matches <- station_data[idx, c("Name", "Station.ID")]
+      matches <- station_data[idx_name, c("Name", "Station.ID")]
       options <- paste0(matches$Name, " (Station.ID: ", matches$Station.ID, ")")
       stop(
         paste0(
@@ -67,6 +69,7 @@ download_station_month <- function(station_name = NULL,
   station <- station_data[idx[1], ]
   station_id <- station$Station.ID
   station_name <- gsub(" ", "_", station$Name)
+  station_folder_name <- .station_output_label(station$Name, station_id, station_data)
   meta_first <- as.numeric(station$HLY.First.Year)
   meta_last <- as.numeric(station$HLY.Last.Year)
 
@@ -81,7 +84,7 @@ download_station_month <- function(station_name = NULL,
     )
   }
 
-  station_folder <- file.path(out_dir, station_name)
+  station_folder <- file.path(out_dir, station_folder_name)
   if (!dir.exists(station_folder)) dir.create(station_folder, recursive = TRUE)
 
   .download_station_month_file(
@@ -134,9 +137,11 @@ download_station_by_name <- function(station_name = NULL,
   }
 
   if (!is.null(station_name)) {
-    idx <- which(gsub(" ", "_", station_data$Name) == gsub(" ", "_", station_name))
+    idx_name <- .find_station_name_index(station_name, station_data)
+    idx <- .find_station_name_index(station_name, station_data, station_id = station_id)
+
     if (length(idx) > 1) {
-      matches <- station_data[idx, c("Name", "Station.ID")]
+      matches <- station_data[idx_name, c("Name", "Station.ID")]
       options <- paste0(matches$Name, " (Station.ID: ", matches$Station.ID, ")")
       stop(
         paste0(
@@ -155,6 +160,7 @@ download_station_by_name <- function(station_name = NULL,
   # check if station exists
   if (length(idx) == 0) stop("Station not found.")
   station_row <- as.list(station_data[idx[1], ])
+  station_row$Folder.Name <- .station_output_label(station_row$Name, station_row$Station.ID, station_data)
   download_station(
     station_row,
     out_dir,
@@ -233,13 +239,13 @@ download_station_province <- function(province,
     stop("No stations found for province: ", province_name)
   }
 
+  estimate <- .estimate_download_size(stations, first_year, last_year)
+
   # Estimate and warn about download size
   if (!isTRUE(confirm)) {
-    estimate <- .estimate_download_size(stations, first_year, last_year)
     message("\n=== Download Estimate ===")
     message("Province: ", province_name)
     message("Stations: ", nrow(stations))
-    message("Years: ", estimate$years)
     message("Estimated files: ", estimate$count)
     if (estimate$size_gb >= 1) {
       message("Estimated space: ", estimate$size_gb, " GB")
@@ -253,6 +259,8 @@ download_station_province <- function(province,
       return(invisible(NULL))
     }
   }
+
+  .check_disk_space(out_dir, estimated_bytes = estimate$count * 130000)
 
   station_rows <- lapply(seq_len(nrow(stations)), function(i) {
     as.list(stations[i, , drop = FALSE])
@@ -305,12 +313,12 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
     station_data <- .load_station_metadata()
   }
 
+  estimate <- .estimate_download_size(station_data, first_year, last_year)
+
   # Estimate and warn about download size
   if (!isTRUE(confirm)) {
-    estimate <- .estimate_download_size(station_data, first_year, last_year)
     message("\n=== Download Estimate ===")
     message("Total stations: ", nrow(station_data))
-    message("Years: ", estimate$years)
     message("Estimated files: ", estimate$count)
     if (estimate$size_gb >= 1) {
       message("Estimated space: ", estimate$size_gb, " GB")
@@ -325,6 +333,8 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
     }
   }
 
+  .check_disk_space(out_dir, estimated_bytes = estimate$count * 130000)
+
   walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
 
   walker(station_data, function(...) {
@@ -332,7 +342,7 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
   })
 }
 
-#' Sync station metadata from official inventory
+#' Sync station metadata from Environment Canada
 #'
 #' User-facing wrapper around internal sync logic.
 #'

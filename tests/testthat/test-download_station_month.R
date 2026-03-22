@@ -45,6 +45,84 @@ test_that("download_station_month downloads file and sleeps", {
   expect_equal(got_sleep, 0.3)
 })
 
+test_that("download_station_month matches station_name case-insensitively", {
+  tmp <- tempfile("drifloon-month-")
+  dir.create(tmp, recursive = TRUE)
+
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2024,
+    stringsAsFactors = FALSE
+  )
+
+  got_url <- NULL
+
+  fake_downloader <- function(url, destfile, mode = "wb", quiet = TRUE) {
+    got_url <<- url
+    writeLines("ok", con = destfile)
+    invisible(0)
+  }
+
+  fake_sleeper <- function(...) {
+    invisible(NULL)
+  }
+
+  result <- Drifloon::download_station_month(
+    station_data = station_data,
+    out_dir = tmp,
+    year = 2020,
+    month = 7,
+    station_name = "mystation",
+    downloader = fake_downloader,
+    sleeper = fake_sleeper
+  )
+
+  expect_true(isTRUE(result))
+  expect_match(got_url, "stationID=31688")
+})
+
+test_that("download_station_month supports close fuzzy station_name matches", {
+  tmp <- tempfile("drifloon-month-")
+  dir.create(tmp, recursive = TRUE)
+
+  station_data <- data.frame(
+    Name = c("MALAHAT", "VICTORIA"),
+    Station.ID = c(65, 42),
+    Province = c("BC", "BC"),
+    HLY.First.Year = c(2000, 2000),
+    HLY.Last.Year = c(2024, 2024),
+    stringsAsFactors = FALSE
+  )
+
+  got_url <- NULL
+
+  fake_downloader <- function(url, destfile, mode = "wb", quiet = TRUE) {
+    got_url <<- url
+    writeLines("ok", con = destfile)
+    invisible(0)
+  }
+
+  fake_sleeper <- function(...) {
+    invisible(NULL)
+  }
+
+  result <- Drifloon::download_station_month(
+    station_data = station_data,
+    out_dir = tmp,
+    year = 2020,
+    month = 7,
+    station_name = "MALHAT",
+    downloader = fake_downloader,
+    sleeper = fake_sleeper
+  )
+
+  expect_true(isTRUE(result))
+  expect_match(got_url, "stationID=65")
+})
+
 test_that("download_station_month skips existing non-empty file", {
   tmp <- tempfile("drifloon-month-")
   dir.create(tmp, recursive = TRUE)
@@ -134,6 +212,49 @@ test_that("download_station_month removes partial file on error", {
   expect_false(sleeper_called)
 })
 
+test_that("download_station_month removes invalid HTML payload files", {
+  tmp <- tempfile("drifloon-month-")
+  dir.create(tmp, recursive = TRUE)
+
+  station_data <- data.frame(
+    Name = "MyStation",
+    Station.ID = 31688,
+    Province = "ON",
+    HLY.First.Year = 2000,
+    HLY.Last.Year = 2024,
+    stringsAsFactors = FALSE
+  )
+
+  station_folder <- file.path(tmp, "MyStation")
+  dir.create(station_folder, recursive = TRUE)
+  dest <- file.path(station_folder, "MyStation_2020_07.csv")
+  sleeper_called <- FALSE
+
+  fake_downloader <- function(url, destfile, mode = "wb", quiet = TRUE) {
+    writeLines(c("<!DOCTYPE html>", "<html><body>error</body></html>"), con = destfile)
+    invisible(0)
+  }
+
+  fake_sleeper <- function(...) {
+    sleeper_called <<- TRUE
+    invisible(NULL)
+  }
+
+  result <- Drifloon::download_station_month(
+    station_data = station_data,
+    out_dir = tmp,
+    year = 2020,
+    month = 7,
+    station_id = 31688,
+    downloader = fake_downloader,
+    sleeper = fake_sleeper
+  )
+
+  expect_false(isTRUE(result))
+  expect_false(file.exists(dest))
+  expect_false(sleeper_called)
+})
+
 test_that("download_station_month errors when year is outside station metadata range", {
   tmp <- tempfile("drifloon-month-")
   dir.create(tmp, recursive = TRUE)
@@ -157,4 +278,45 @@ test_that("download_station_month errors when year is outside station metadata r
     ),
     "outside available range"
   )
+})
+
+test_that("download_station_month uses station_id to disambiguate duplicate station names", {
+  tmp <- tempfile("drifloon-month-")
+  dir.create(tmp, recursive = TRUE)
+
+  station_data <- data.frame(
+    Name = c("MyStation", "MyStation"),
+    Station.ID = c(31688, 99999),
+    Province = c("ON", "ON"),
+    HLY.First.Year = c(2000, 2000),
+    HLY.Last.Year = c(2024, 2024),
+    stringsAsFactors = FALSE
+  )
+
+  got_url <- NULL
+
+  fake_downloader <- function(url, destfile, mode = "wb", quiet = TRUE) {
+    got_url <<- url
+    writeLines("ok", con = destfile)
+    invisible(0)
+  }
+
+  fake_sleeper <- function(...) {
+    invisible(NULL)
+  }
+
+  result <- Drifloon::download_station_month(
+    station_data = station_data,
+    out_dir = tmp,
+    year = 2020,
+    month = 7,
+    station_name = "MyStation",
+    station_id = 99999,
+    downloader = fake_downloader,
+    sleeper = fake_sleeper
+  )
+
+  expect_true(isTRUE(result))
+  expect_match(got_url, "stationID=99999")
+  expect_true(dir.exists(file.path(tmp, "MyStation-99999")))
 })

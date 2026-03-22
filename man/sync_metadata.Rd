@@ -2,7 +2,7 @@
 % Please edit documentation in R/Drifblim.R
 \name{sync_metadata}
 \alias{sync_metadata}
-\title{Sync station metadata from official inventory}
+\title{Sync station metadata from Environment Canada}
 \usage{
 sync_metadata(...)
 }

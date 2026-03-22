@@ -13,6 +13,34 @@
 #' @return Invisibly returns \code{TRUE} if successful, \code{FALSE} otherwise.
 #'
 #' @keywords internal
+.is_valid_downloaded_month_file <- function(path) {
+  if (!file.exists(path)) {
+    return(FALSE)
+  }
+
+  info <- file.info(path)
+  if (is.na(info$size) || info$size <= 0) {
+    return(FALSE)
+  }
+
+  preview <- tryCatch(
+    readLines(path, n = 5, warn = FALSE, encoding = "UTF-8"),
+    error = function(e) character(0)
+  )
+
+  if (length(preview) == 0) {
+    return(FALSE)
+  }
+
+  preview_text <- tolower(paste(preview, collapse = "\n"))
+  if (grepl("<html", preview_text, fixed = TRUE) || grepl("<!doctype", preview_text, fixed = TRUE)) {
+    return(FALSE)
+  }
+
+  TRUE
+}
+
+#' @keywords internal
 .download_station_month_file <- function(station_id, station_name, station_folder,
                                          year, month, downloader = download.file,
                                          sleeper = Sys.sleep) {
@@ -57,6 +85,13 @@
     if (file.exists(dest_file)) file.remove(dest_file)
     return(invisible(FALSE))
   }
+
+  if (!.is_valid_downloaded_month_file(dest_file)) {
+    message("Invalid or corrupted file: ", basename(dest_file))
+    if (file.exists(dest_file)) file.remove(dest_file)
+    return(invisible(FALSE))
+  }
+
   # self throttling to not get banned
   sleeper(0.3)
   invisible(TRUE)
@@ -94,6 +129,10 @@ download_station <- function(station, out_dir = NULL, first_year = NULL, last_ye
 
   station_id   <- station$Station.ID
   station_name <- gsub(" ", "_", station$Name)
+  station_folder_name <- station[["Folder.Name"]]
+  if (is.null(station_folder_name) || !is.character(station_folder_name) || !nzchar(station_folder_name)) {
+    station_folder_name <- station_name
+  }
 
   # Metadata range
   meta_first <- as.numeric(station$HLY.First.Year)
@@ -131,7 +170,7 @@ download_station <- function(station, out_dir = NULL, first_year = NULL, last_ye
   years <- seq(begin_year, end_year)
   months <- 1:12
 
-  station_folder <- file.path(out_dir, station_name)
+  station_folder <- file.path(out_dir, station_folder_name)
   if (!dir.exists(station_folder)) dir.create(station_folder, recursive = TRUE)
 
   combos <- expand.grid(
