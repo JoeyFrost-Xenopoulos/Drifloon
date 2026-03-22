@@ -2,30 +2,32 @@
 % Please edit documentation in R/Drifloon-package.R
 \docType{package}
 \name{Drifloon}
-\alias{Drifloon}
 \alias{Drifloon-package}
-\title{Drifloon: Canadian weather station download and management package}
-\description{
-The `Drifloon` allows users to pick and choose Canadian weather stations and
-download weather data from the years 1980 to 2020.
+\alias{Drifloon}
+\title{Drifloon: Canadian Weather Data Download Toolkit}
+
+\section{Main Functions}{
+
+\itemize{
+  \item \code{download_station_month()}: Download one month of hourly data for a station.
+  \item \code{download_station_by_name()}: Primary user entry for station downloads.
+  \item \code{download_station_province()}: Download all stations in a province.
+  \item \code{download_all_station()}: Download all stations in metadata.
+  \item \code{load_metadata()}: Load packaged station metadata.
+  \item \code{sync_metadata()}: Sync metadata from official station inventory.
+  \item \code{download_metadata()}: Copy packaged metadata \code{.rds} file to disk.
 }
-\section{Function index}{
-
-- [download_station_month()] Download one month of hourly data for a station.
-
-- [download_station_by_name()] Primary user entry for downloading station data
-  by station name or station ID.
-
-- [download_station_province()] Download all stations in a province.
-
-- [download_all_station()] Downloads all weather station data available in
-the metadata file.
-
-- [load_metadata()] Load packaged station metadata as a data frame.
-
-- [sync_metadata()] Sync metadata from the official station inventory CSV.
-
-- [download_metadata()] Copy packaged metadata \code{.rds} file to disk.
 }
 
+\seealso{
+Useful links:
+\itemize{
+  \item Environment and Climate Change Canada climate data portal:
+  \url{https://climate.weather.gc.ca/}
+}
+}
+\author{
+Maintainer: Joey Frost-Xenopoulos
+\email{joeyfrostxenopoulos@trentu.ca}
+}
 \keyword{package}
