@@ -1,21 +1,5 @@
 #' Drifloon: Canadian Weather Data Download Toolkit
 #'
-#' @description
-#' Drifloon helps you discover Canadian climate stations and download hourly
-#' weather data from Environment and Climate Change Canada.
-#'
-#' @details
-#' To learn more about Drifloon, start with:
-#' \code{?download_station_by_name}, \code{?download_station_province},
-#' and \code{?sync_metadata}.
-#'
-#' Common workflow:
-#' \enumerate{
-#'   \item Load metadata with \code{load_metadata()}.
-#'   \item (Optional) refresh packaged metadata with \code{sync_metadata()}.
-#'   \item Download station data by name, province, or month.
-#' }
-#'
 #' @section Main Functions:
 #' \itemize{
 #'   \item \code{download_station_month()}: Download one month of hourly data for a station.
