@@ -351,7 +351,7 @@
 #'   files eligible for backup. Default is 25 MB.
 #' @param require_hourly Logical. If TRUE, keep only rows with hourly ranges.
 #' @param provinces Character vector of provinces to keep (optional).
-#' @param min_year Numeric. Minimum year overlap filter. Default is 1980.
+#' @param min_year Numeric. Minimum year overlap filter.
 #' @param max_year Numeric. Optional maximum year overlap filter.
 #' @param downloader Function used to download files (default: download.file).
 #'
@@ -368,7 +368,7 @@
     max_backup_bytes = 25 * 1024 ^ 2,
     require_hourly = TRUE,
     provinces = NULL,
-    min_year = 1980,
+    min_year = NULL,
     max_year = NULL,
     downloader = download.file) {
   if (!is.character(station_csv_url) || length(station_csv_url) != 1 || !nzchar(station_csv_url)) {
