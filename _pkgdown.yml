@@ -1,0 +1,58 @@
+url: ~
+
+development:
+  mode: auto
+
+template:
+  bootstrap: 5
+
+home:
+  title: Drifloon
+  description: Download and manage Canadian weather station data.
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [search]
+  components:
+    intro:
+      text: Get started
+      href: articles/drifloon-workflow.html
+    reference:
+      text: Reference
+      href: reference/index.html
+    articles:
+      text: Articles
+      menu:
+      - text: Drifloon vignette
+        href: articles/drifloon-workflow.html
+
+articles:
+- title: Workflow
+  navbar: ~
+  contents:
+  - drifloon-workflow
+
+reference:
+- title: Data download
+  contents:
+  - download_metadata
+  - download_all_station
+  - download_station
+  - download_station_province
+  - download_station_by_name
+  - download_station_month
+
+- title: Metadata
+  contents:
+  - load_metadata
+  - sync_metadata
+
+- title: Package
+  contents:
+  - Drifloon
+
+- title: Internal helpers
+  contents:
+  - starts_with(".")
+
