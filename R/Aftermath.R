@@ -1,17 +1,17 @@
 #' Create a SQLite weather database from local files
 #'
 #' Builds a SQLite database using station metadata and hourly station CSV files.
-#' The function can also scaffold the expected directory layout.
 #'
 #' Expected file structure under \code{base_dir}:
 #' \itemize{
-#'   \item \code{metadata/HLY_station_info.csv}
-#'   \item \code{hourly_station_data/} (recursive station CSV files)
+#'   \item \code{data/HLY_station_info.rds}
+#'   \item \code{drifloon_output/} (recursive station CSV files)
 #' }
 #'
 #' @param base_dir Character. Root directory that contains input files and where
 #'   metadata and hourly data files are located.
-#' @param db_name Character. SQLite file name to create under \code{base_dir}.
+#' @param db_name Character. SQLite file name to create under
+#'   \code{file.path(base_dir, "database")}.
 #'   Default is \code{"climate_database.db"}.
 #' @param overwrite Logical. If \code{TRUE}, replaces an existing database file.
 #' @param batch_size Numeric. Number of source files to accumulate before each
@@ -21,19 +21,28 @@
 #'
 #' @details
 #' Station metadata is read from
-#' \code{file.path(base_dir, "metadata", "HLY_station_info.csv")}. Column names
+#' \code{file.path(base_dir, "data", "HLY_station_info.rds")}. Column names
 #' are matched permissively to support common variants (for example,
-#' \code{Climate.ID} and \code{Climate_ID}).
+#' \code{Station.ID} and \code{Station_ID}).
+#'
+#' Hourly rows are matched by Climate ID using a climate-id column in each CSV
+#' (for example, \code{Climate.ID} or \code{Climate ID}).
+#'
+#' The SQLite database file is created under
+#' \code{file.path(base_dir, "database")}, not directly under \code{base_dir}.
 #'
 #' If the current working directory contains more than 1000 CSV files, an
 #' interactive confirmation prompt is shown because the resulting database may
 #' be large.
 #'
+#' Station records are pre-filtered to only Climate IDs found in downloaded
+#' hourly CSV files before insertion.
+#'
 #' If no station metadata rows are present, the function still creates the
 #' database schema and weather lookup table.
 #'
 #' @export
-create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
+create_database <- function(base_dir = file.path(getwd()),
                             db_name = "climate_database.db",
                             overwrite = FALSE,
                             batch_size = 50L) {
@@ -74,9 +83,10 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
   }
 
   base_dir <- normalizePath(base_dir, winslash = "/", mustWork = FALSE)
-  metadata_dir <- file.path(base_dir, "metadata")
-  hourly_dir <- file.path(base_dir, "hourly_station_data")
-  station_info_path <- file.path(metadata_dir, "HLY_station_info.csv")
+  metadata_dir <- file.path(base_dir, "data")
+  hourly_dir <- file.path(base_dir, "drifloon_output")
+  station_info_path <- file.path(metadata_dir, "HLY_station_info.rds")
+  db_out_dir <- file.path(base_dir, "database")
 
   if (!dir.exists(hourly_dir)) {
     stop("Missing expected directory: ", hourly_dir)
@@ -85,7 +95,11 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
     stop("Missing expected metadata file: ", station_info_path)
   }
 
-  db_path <- file.path(base_dir, db_name)
+  if (!dir.exists(db_out_dir)) {
+    dir.create(db_out_dir, recursive = TRUE)
+  }
+
+  db_path <- file.path(db_out_dir, db_name)
   if (file.exists(db_path)) {
     if (!isTRUE(overwrite)) {
       stop("Database already exists at ", db_path, ". Use overwrite = TRUE to replace it.")
@@ -148,27 +162,58 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
   names(weather_id_by_condition) <- weather_table$Weather_Condition
   DBI::dbWriteTable(con, "Weather", weather_table, append = TRUE, row.names = FALSE)
 
-  station_raw <- utils::read.csv(station_info_path, stringsAsFactors = FALSE)
-
-  required_station_cols <- c("Climate.ID", "Station.ID", "stationName")
-  missing_station_cols <- setdiff(required_station_cols, names(station_raw))
-  if (length(missing_station_cols) > 0) {
-    stop(
-      "station metadata is missing required columns: ",
-      paste(missing_station_cols, collapse = ", ")
-    )
+  station_raw <- readRDS(station_info_path)
+  if (!is.data.frame(station_raw)) {
+    stop("Metadata RDS must contain a data.frame.")
   }
 
+  find_col <- function(candidates, required = TRUE) {
+    idx <- which(names(station_raw) %in% candidates)
+    if (length(idx) == 0) {
+      if (required) {
+        stop("station metadata is missing required columns: ", paste(candidates, collapse = ", "))
+      }
+      return(NULL)
+    }
+    names(station_raw)[idx[[1]]]
+  }
+
+  col_climate <- find_col(c("Climate.ID", "Climate_ID", "Climate ID"), required = TRUE)
+  col_station_id <- find_col(c("Station.ID", "Station_ID", "Station ID"), required = TRUE)
+  col_station_name <- find_col(c("stationName", "Name", "Station_Name", "Station Name"), required = TRUE)
+
+  col_province <- find_col(c("Province", "Province_Name", "Province Name"), required = FALSE)
+  col_latitude <- find_col(c("Latitude"), required = FALSE)
+  col_longitude <- find_col(c("Longitude"), required = FALSE)
+  col_elevation <- find_col(c("Elevation..m.", "Elevation", "Elevation_m"), required = FALSE)
+  col_hly_first <- find_col(c("HLY.First.Year", "HLY_First_Year", "HLY First Year"), required = FALSE)
+  col_hly_last <- find_col(c("HLY.Last.Year", "HLY_Last_Year", "HLY Last Year"), required = FALSE)
+
+  get_col_or_na <- function(col_name, n, mode = c("character", "numeric", "integer")) {
+    mode <- match.arg(mode)
+    if (is.null(col_name)) {
+      if (mode == "character") return(rep(NA_character_, n))
+      if (mode == "numeric") return(rep(NA_real_, n))
+      return(rep(NA_integer_, n))
+    }
+
+    values <- station_raw[[col_name]]
+    if (mode == "character") return(as.character(values))
+    if (mode == "numeric") return(suppressWarnings(as.numeric(values)))
+    suppressWarnings(as.integer(values))
+  }
+
+  n_station <- nrow(station_raw)
   station_table <- data.frame(
-    Climate_ID = as.character(station_raw$Climate.ID),
-    Station_ID = suppressWarnings(as.integer(station_raw$Station.ID)),
-    Station_Name = as.character(station_raw$stationName),
-    Province_Name = if ("Province" %in% names(station_raw)) as.character(station_raw$Province) else NA_character_,
-    Latitude = if ("Latitude" %in% names(station_raw)) suppressWarnings(as.numeric(station_raw$Latitude)) else NA_real_,
-    Longitude = if ("Longitude" %in% names(station_raw)) suppressWarnings(as.numeric(station_raw$Longitude)) else NA_real_,
-    Elevation = if ("Elevation..m." %in% names(station_raw)) suppressWarnings(as.numeric(station_raw$Elevation..m.)) else NA_real_,
-    HLY_First_Year = if ("HLY.First.Year" %in% names(station_raw)) suppressWarnings(as.integer(station_raw$HLY.First.Year)) else NA_integer_,
-    HLY_Last_Year = if ("HLY.Last.Year" %in% names(station_raw)) suppressWarnings(as.integer(station_raw$HLY.Last.Year)) else NA_integer_,
+    Climate_ID = as.character(station_raw[[col_climate]]),
+    Station_ID = suppressWarnings(as.integer(station_raw[[col_station_id]])),
+    Station_Name = as.character(station_raw[[col_station_name]]),
+    Province_Name = get_col_or_na(col_province, n_station, mode = "character"),
+    Latitude = get_col_or_na(col_latitude, n_station, mode = "numeric"),
+    Longitude = get_col_or_na(col_longitude, n_station, mode = "numeric"),
+    Elevation = get_col_or_na(col_elevation, n_station, mode = "numeric"),
+    HLY_First_Year = get_col_or_na(col_hly_first, n_station, mode = "integer"),
+    HLY_Last_Year = get_col_or_na(col_hly_last, n_station, mode = "integer"),
     stringsAsFactors = FALSE
   )
 
@@ -177,8 +222,51 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
     ,
     drop = FALSE
   ]
-  station_table <- station_table[!duplicated(station_table$Station_ID), , drop = FALSE]
+  station_table <- station_table[!duplicated(station_table$Climate_ID), , drop = FALSE]
   rownames(station_table) <- NULL
+
+  csv_files <- list.files(hourly_dir, pattern = "\\.csv$", recursive = TRUE, full.names = TRUE)
+
+  extract_climate_ids <- function(df) {
+    climate_id_candidates <- c("Climate.ID", "Climate_ID", "Climate ID", "ClimateID")
+    id_col <- climate_id_candidates[climate_id_candidates %in% names(df)]
+
+    if (length(id_col) == 0) {
+      return(rep(NA_character_, nrow(df)))
+    }
+
+    as.character(df[[id_col[[1]]]])
+  }
+
+  climate_ids_in_downloads <- character(0)
+  if (length(csv_files) > 0) {
+    for (path in csv_files) {
+      header_probe <- tryCatch(
+        suppressWarnings(utils::read.csv(path, stringsAsFactors = FALSE, nrows = 5)),
+        error = function(e) NULL
+      )
+      if (is.null(header_probe)) {
+        next
+      }
+
+      climate_ids_in_downloads <- c(climate_ids_in_downloads, extract_climate_ids(header_probe))
+    }
+  }
+
+  climate_ids_in_downloads <- unique(climate_ids_in_downloads[!is.na(climate_ids_in_downloads) & nzchar(climate_ids_in_downloads)])
+  if (length(csv_files) > 0 && length(climate_ids_in_downloads) == 0) {
+    stop(
+      "No Climate ID column found in hourly CSV files. ",
+      "Expected one of: Climate.ID, Climate_ID, Climate ID, ClimateID."
+    )
+  }
+
+  if (length(climate_ids_in_downloads) > 0) {
+    station_table <- station_table[station_table$Climate_ID %in% climate_ids_in_downloads, , drop = FALSE]
+    rownames(station_table) <- NULL
+  } else {
+    station_table <- station_table[0, , drop = FALSE]
+  }
 
   if (nrow(station_table) > 0) {
     DBI::dbWriteTable(con, "Station", station_table, append = TRUE, row.names = FALSE)
@@ -186,8 +274,6 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
 
   station_id_lookup <- station_table$Station_ID
   names(station_id_lookup) <- station_table$Climate_ID
-
-  csv_files <- list.files(hourly_dir, pattern = "\\.csv$", recursive = TRUE, full.names = TRUE)
 
   files_processed <- 0L
   rows_written <- 0L
@@ -207,18 +293,23 @@ create_database <- function(base_dir = file.path(getwd(), "drifloon_output"),
           next
         }
 
-        required_hourly_cols <- c("Climate.ID", "Year", "Month", "Day", "Time..LST.")
+        required_hourly_cols <- c("Year", "Month", "Day", "Time..LST.")
         if (length(setdiff(required_hourly_cols, names(hourly))) > 0) {
           next
         }
 
+        row_climate_id <- extract_climate_ids(hourly)
+        if (length(row_climate_id) != nrow(hourly)) {
+          next
+        }
+
+        row_station_id <- as.integer(unname(station_id_lookup[row_climate_id]))
+
         weather_text <- if ("Weather" %in% names(hourly)) as.character(hourly$Weather) else rep(NA_character_, nrow(hourly))
         weather_id <- as.integer(unname(weather_id_by_condition[weather_text]))
 
-        station_id <- as.integer(unname(station_id_lookup[as.character(hourly$Climate.ID)]))
-
         rows <- data.frame(
-          Station_ID = station_id,
+          Station_ID = row_station_id,
           Year = suppressWarnings(as.integer(hourly$Year)),
           Month = suppressWarnings(as.integer(hourly$Month)),
           Day = suppressWarnings(as.integer(hourly$Day)),

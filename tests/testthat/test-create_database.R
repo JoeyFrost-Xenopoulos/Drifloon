@@ -16,13 +16,13 @@ test_that("create_database ingests station and observation rows", {
   skip_if_not_installed("RSQLite")
 
   root <- tempfile("drifloon-db-")
-  dir.create(file.path(root, "metadata"), recursive = TRUE)
-  dir.create(file.path(root, "hourly_station_data", "Station_123"), recursive = TRUE)
+  dir.create(file.path(root, "data"), recursive = TRUE)
+  dir.create(file.path(root, "drifloon_output", "Station_123"), recursive = TRUE)
 
   station_info <- data.frame(
     Climate.ID = "CXTEST",
     Station.ID = 123,
-    stationName = "Test Station",
+    Name = "Test Station",
     Province = "Ontario",
     Latitude = 44.1,
     Longitude = -78.3,
@@ -31,13 +31,13 @@ test_that("create_database ingests station and observation rows", {
     HLY.Last.Year = 2024,
     stringsAsFactors = FALSE
   )
-  utils::write.csv(
+  saveRDS(
     station_info,
-    file.path(root, "metadata", "HLY_station_info.csv"),
-    row.names = FALSE
+    file.path(root, "data", "HLY_station_info.rds")
   )
 
   hourly <- data.frame(
+    Station.ID = 123,
     Climate.ID = "CXTEST",
     Year = 2024,
     Month = 1,
@@ -58,7 +58,7 @@ test_that("create_database ingests station and observation rows", {
   )
   utils::write.csv(
     hourly,
-    file.path(root, "hourly_station_data", "Station_123", "Test_2024_01.csv"),
+    file.path(root, "drifloon_output", "Station_123", "Test_2024_01.csv"),
     row.names = FALSE
   )
 

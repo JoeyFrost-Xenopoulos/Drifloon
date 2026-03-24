@@ -14,7 +14,7 @@
   max_backup_bytes = 25 * 1024^2,
   require_hourly = TRUE,
   provinces = NULL,
-  min_year = 1980,
+  min_year = NULL,
   max_year = NULL,
   downloader = download.file
 )
@@ -38,7 +38,7 @@ files eligible for backup. Default is 25 MB.}
 
 \item{provinces}{Character vector of provinces to keep (optional).}
 
-\item{min_year}{Numeric. Minimum year overlap filter. Default is 1980.}
+\item{min_year}{Numeric. Minimum year overlap filter.}
 
 \item{max_year}{Numeric. Optional maximum year overlap filter.}
 
