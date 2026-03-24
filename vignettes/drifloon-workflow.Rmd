@@ -156,11 +156,16 @@ download_all_station(
   confirm = TRUE
 )
 ```
+## Create a SQL databse
 
-## Helper internals and how they support the API
+The default directory is your current working directory but it can be specified ot be anything
+you like. 
 
-Drifloon includes internal helpers (not exported) that make wrappers safer and
-more predictable:
+```{r, eval = FALSE}
+create_database()
+```
+
+## Helper internals
 
 - Metadata and paths:
   - `.load_station_metadata()`
@@ -218,4 +223,7 @@ download_station_province(
   out_dir = "drifloon_output",
   confirm = TRUE
 )
+
+# 6) Create relational database
+create_database()
 ```
