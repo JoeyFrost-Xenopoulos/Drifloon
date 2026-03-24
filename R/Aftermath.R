@@ -283,8 +283,12 @@ create_database <- function(base_dir = file.path(getwd()),
   if (length(csv_files) > 0 && nrow(station_table) > 0) {
     DBI::dbBegin(con)
     committed <- FALSE
-    tryCatch({
-      for (path in csv_files) {
+    
+    progressr::with_progress({
+      p <- progressr::progressor(steps = length(csv_files))
+      
+      tryCatch({
+        for (path in csv_files) {
         hourly <- tryCatch(
           suppressWarnings(utils::read.csv(path, stringsAsFactors = FALSE)),
           error = function(e) NULL
@@ -345,6 +349,7 @@ create_database <- function(base_dir = file.path(getwd()),
         }
 
         files_processed <- files_processed + 1L
+        p(message = sprintf("Processed %d files", files_processed))
 
         if (!is.null(batch) && (files_processed %% batch_size == 0L)) {
           DBI::dbWriteTable(con, "Observation", batch, append = TRUE, row.names = FALSE)
@@ -358,13 +363,14 @@ create_database <- function(base_dir = file.path(getwd()),
         rows_written <- rows_written + nrow(batch)
       }
 
-      DBI::dbCommit(con)
-      committed <- TRUE
-    }, error = function(e) {
-      if (!committed) {
-        DBI::dbRollback(con)
-      }
-      stop("Failed while building observations: ", conditionMessage(e))
+        DBI::dbCommit(con)
+        committed <- TRUE
+      }, error = function(e) {
+        if (!committed) {
+          DBI::dbRollback(con)
+        }
+        stop("Failed while building observations: ", conditionMessage(e))
+      })
     })
   }
 

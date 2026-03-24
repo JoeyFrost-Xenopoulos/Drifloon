@@ -11,6 +11,7 @@ LazyData: true
 Imports:
     DBI,
     furrr,
+    progressr,
     purrr,
     RSQLite
 Suggests:
