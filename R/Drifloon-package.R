@@ -2,13 +2,13 @@
 #'
 #' @section Main Functions:
 #' \itemize{
-#'   \item \code{download_station_month()}: Download one month of hourly data for a station.
-#'   \item \code{download_station_by_name()}: Primary user entry for station downloads.
-#'   \item \code{download_station_province()}: Download all stations in a province.
-#'   \item \code{download_all_station()}: Download all stations in metadata.
-#'   \item \code{load_metadata()}: Load packaged station metadata.
-#'   \item \code{sync_metadata()}: Sync metadata from official station inventory.
-#'   \item \code{download_metadata()}: Copy packaged metadata \code{.rds} file to disk.
+#'   \item \code{\link{download_station_month()}}: Download one month of hourly data for a station.
+#'   \item \code{\link{download_station_by_name()}}: Primary user entry for station downloads.
+#'   \item \code{\link{download_station_province()}}: Download all stations in a province.
+#'   \item \code{\link{download_all_station()}}: Download all stations in metadata.
+#'   \item \code{\link{load_metadata()}}: Load packaged station metadata.
+#'   \item \code{\link{sync_metadata()}}: Sync metadata from official station inventory.
+#'   \item \code{\link{download_metadata()}}: Copy packaged metadata \code{.rds} file to disk.
 #' }
 #'
 #' @author
