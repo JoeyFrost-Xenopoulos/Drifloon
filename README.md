@@ -2,8 +2,6 @@
 
 # Drifloon
 
----
-
 Drifloon helps you discover and download historical hourly weather data from Environment and Climate Change Canada (ECCC), then optionally build a local SQLite database for analysis.
 
 https://climate.weather.gc.ca/historical_data/search_historic_data_e.html
