@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="sitcker/drifloon.hex.png" alt="Drifloon hex sticker" width="220">
-</p>
+![Drifloon hex sticker](sitcker/drifloon.hex.png)
 
 # Drifloon
 
