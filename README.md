@@ -2,6 +2,8 @@
 
 # Drifloon
 
+<br clear="right"/>
+
 Drifloon helps you discover and download historical hourly weather data from Environment and Climate Change Canada (ECCC), then optionally build a local SQLite database for analysis.
 
 https://climate.weather.gc.ca/historical_data/search_historic_data_e.html
@@ -10,16 +12,12 @@ https://climate.weather.gc.ca/historical_data/search_historic_data_e.html
 
 ## What You Can Do
 
----
-
 - Load station metadata (name, station ID, province, hourly year range).
 - Sync station metadata from the official station inventory.
 - Download one month, one station, one province, or all stations.
 - Build a SQLite database from downloaded CSV files.
 
 ## Quick Start
-
----
 
 Before the downloads it is smart to look at the list of stations, as each download requires either station name, station_id, or province. 
 
@@ -31,8 +29,6 @@ head(stations)
 ```
 
 ## Metadata
-
----
 
 You can update the current metadata to the most recent version.
 
@@ -50,13 +46,9 @@ By default, sync applies no year floor or year cap. Set min_year and/or max_year
 
 ## Downloads
 
----
-
 By default, downloads are written to a drifloon_output folder in your working directory.
 
 ### Download One Station-Month
-
----
 
 Use either station_id or station_name:
 
@@ -70,8 +62,6 @@ download_station_month(
 
 ### Download a Single Station (All Available Months/Years)
 
----
-
 ```r
 download_station_by_name(
 	station_name = "Discovery Island",
@@ -82,8 +72,6 @@ download_station_by_name(
 ```
 
 ### Download All Stations in a Province
-
----
 
 The function prompts for confirmation by default because this can be large.
 
@@ -99,8 +87,6 @@ download_station_province(
 
 ### Download All Stations
 
----
-
 Use with caution; this can generate very large downloads.
 
 ```r
@@ -114,7 +100,6 @@ download_all_station(
 
 ## Save Packaged Metadata File
 
----
 
 If you want a local copy of the packaged metadata file:
 
@@ -123,8 +108,6 @@ download_metadata(out_dir = "data", overwrite = TRUE)
 ```
 
 ## Create SQLite Database
-
----
 
 After downloading CSVs, build a SQLite database:
 
@@ -147,14 +130,10 @@ The database is created at:
 
 ## Notes
 
----
-
 - Station name matching is tolerant to case and punctuation differences.
 - Ambiguous station names can be disambiguated with station_id.
 - Disk-space checks are warning-only; downloads continue even when free space appears low.
 
 ## License
-
----
 
 MIT
