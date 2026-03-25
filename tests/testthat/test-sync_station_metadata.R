@@ -289,7 +289,7 @@ test_that(".read_station_inventory_csv normalizes spaced header variants", {
   expect_equal(parsed$data$HLY.Last.Year[[1]], 2005)
 })
 
-test_that(".sync_station_metadata defaults to min_year 1980 with no max_year cap", {
+test_that(".sync_station_metadata applies no default year floor or cap", {
   tmp_root <- tempfile("drifloon-sync-")
   dir.create(tmp_root, recursive = TRUE)
 
@@ -322,7 +322,7 @@ test_that(".sync_station_metadata defaults to min_year 1980 with no max_year cap
 
   expect_true(result$updated)
   saved <- readRDS(rds_path)
-  expect_false(1 %in% saved$Station.ID)
+  expect_true(1 %in% saved$Station.ID)
   expect_true(2 %in% saved$Station.ID)
   expect_true(3 %in% saved$Station.ID)
 })

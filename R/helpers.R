@@ -422,11 +422,14 @@
   if (disk_info < required_bytes) {
     available_gb <- round(disk_info / (1024 ^ 3), 2)
     required_gb <- round(required_bytes / (1024 ^ 3), 2)
-    stop(
+    warning(
       "Insufficient disk space in '", out_dir, "'.\n",
       "  Available: ", available_gb, " GB\n",
-      "  Required (with buffer): ", required_gb, " GB"
+      "  Required (with buffer): ", required_gb, " GB\n",
+      "Proceeding anyway; downloads may fail if disk fills up.",
+      call. = FALSE
     )
+    return(FALSE)
   }
 
   invisible(TRUE)

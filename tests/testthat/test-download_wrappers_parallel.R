@@ -437,13 +437,18 @@ test_that("download_all_station runs disk-space safeguard before downloading", {
   expect_equal(sort(captured_ids), c(1, 2))
 })
 
-test_that("download_station_province stops when disk-space safeguard fails", {
+test_that("download_station_province continues with warning when disk-space safeguard fails", {
   fake_check_disk_space <- function(...) {
-    stop("Insufficient disk space")
+    warning("Insufficient disk space", call. = FALSE)
+    FALSE
   }
 
-  fake_download_station <- function(...) {
-    stop("download_station should not run when disk check fails")
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
   }
 
   station_data <- data.frame(
@@ -464,7 +469,7 @@ test_that("download_station_province stops when disk-space safeguard fails", {
     .package = "Drifloon"
   )
 
-  expect_error(
+  expect_warning(
     Drifloon::download_station_province(
       station_data = station_data,
       out_dir = out_dir,
@@ -474,6 +479,8 @@ test_that("download_station_province stops when disk-space safeguard fails", {
     ),
     "Insufficient disk space"
   )
+
+  expect_equal(sort(captured_ids), c(1, 2))
 })
 
 test_that("download_station_province does not run disk check when user cancels", {
