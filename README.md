@@ -1,4 +1,4 @@
-![Drifloon hex sticker](sitcker/drifloon.hex.png)
+![Drifloon hex sticker](sticker/drifloon_hex.png)
 
 # Drifloon
 
