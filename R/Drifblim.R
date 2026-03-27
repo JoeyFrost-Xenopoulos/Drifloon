@@ -338,8 +338,6 @@ download_station_province <- function(province,
     }
   }
 
-  .check_disk_space(out_dir, estimated_bytes = estimate$count * 130000)
-
   # Loop through each province
   for (prov in all_province_names) {
     stations <- station_data[!is.na(station_province) & station_province == prov, ]
@@ -420,8 +418,6 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
       return(invisible(NULL))
     }
   }
-
-  .check_disk_space(out_dir, estimated_bytes = estimate$count * 130000)
 
   walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
 

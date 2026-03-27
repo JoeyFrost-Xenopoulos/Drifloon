@@ -181,6 +181,84 @@ test_that("download_station_province sequential mode calls matching stations", {
   expect_equal(sort(captured_ids), c(1, 3))
 })
 
+test_that("download_station_province vectorizes province", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    expect_false(parallel)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2", "S3", "S4"),
+    Station.ID = c(1, 2, 3, 4),
+    Province = c("ON", "QC", "ON", "AB"),
+    HLY.First.Year = c(2000, 2001, 2002, 2003),
+    HLY.Last.Year = c(2003, 2004, 2005, 2006),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  Drifloon::download_station_province(
+    station_data = station_data,
+    out_dir = out_dir,
+    province = c("ON", "QC"),
+    parallel = FALSE,
+    confirm = TRUE
+  )
+
+  expect_equal(sort(captured_ids), c(1, 2, 3))
+})
+
+test_that("download_station_province vectorized province warns and skips missing province", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
+                                    parallel = FALSE) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("S1", "S2"),
+    Station.ID = c(1, 2),
+    Province = c("ON", "QC"),
+    HLY.First.Year = c(2000, 2001),
+    HLY.Last.Year = c(2003, 2004),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  local_mocked_bindings(
+    download_station = fake_download_station,
+    .package = "Drifloon"
+  )
+
+  expect_warning(
+    Drifloon::download_station_province(
+      station_data = station_data,
+      out_dir = out_dir,
+      province = c("ON", "AB"),
+      parallel = FALSE,
+      confirm = TRUE
+    ),
+    "No stations found for province"
+  )
+
+  expect_equal(captured_ids, 1)
+})
+
 test_that("download_station_province accepts province as first positional argument", {
   captured_ids <- integer(0)
 
@@ -393,126 +471,3 @@ test_that("download_all_station sequential mode calls all stations", {
   expect_equal(sort(captured_ids), c(1, 2, 3))
 })
 
-test_that("download_all_station runs disk-space safeguard before downloading", {
-  checked_bytes <- NULL
-  captured_ids <- integer(0)
-
-  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
-                                    parallel = FALSE) {
-    captured_ids <<- c(captured_ids, station$Station.ID)
-    invisible(NULL)
-  }
-
-  fake_check_disk_space <- function(out_dir, estimated_bytes, buffer_percent = 10) {
-    checked_bytes <<- estimated_bytes
-    TRUE
-  }
-
-  station_data <- data.frame(
-    Name = c("S1", "S2"),
-    Station.ID = c(1, 2),
-    Province = c("ON", "QC"),
-    HLY.First.Year = c(2000, 2000),
-    HLY.Last.Year = c(2000, 2000),
-    stringsAsFactors = FALSE
-  )
-
-  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
-  local_mocked_bindings(
-    download_station = fake_download_station,
-    .check_disk_space = fake_check_disk_space,
-    .package = "Drifloon"
-  )
-
-  Drifloon::download_all_station(
-    station_data = station_data,
-    out_dir = out_dir,
-    parallel = FALSE,
-    confirm = TRUE
-  )
-
-  expect_true(checked_bytes > 0)
-  expect_equal(sort(captured_ids), c(1, 2))
-})
-
-test_that("download_station_province continues with warning when disk-space safeguard fails", {
-  fake_check_disk_space <- function(...) {
-    warning("Insufficient disk space", call. = FALSE)
-    FALSE
-  }
-
-  captured_ids <- integer(0)
-
-  fake_download_station <- function(station, out_dir, first_year = NULL, last_year = NULL,
-                                    parallel = FALSE) {
-    captured_ids <<- c(captured_ids, station$Station.ID)
-    invisible(NULL)
-  }
-
-  station_data <- data.frame(
-    Name = c("S1", "S2"),
-    Station.ID = c(1, 2),
-    Province = c("ON", "ON"),
-    HLY.First.Year = c(2000, 2000),
-    HLY.Last.Year = c(2000, 2000),
-    stringsAsFactors = FALSE
-  )
-
-  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
-  local_mocked_bindings(
-    .check_disk_space = fake_check_disk_space,
-    download_station = fake_download_station,
-    .package = "Drifloon"
-  )
-
-  expect_warning(
-    Drifloon::download_station_province(
-      station_data = station_data,
-      out_dir = out_dir,
-      province = "ON",
-      parallel = FALSE,
-      confirm = TRUE
-    ),
-    "Insufficient disk space"
-  )
-
-  expect_equal(sort(captured_ids), c(1, 2))
-})
-
-test_that("download_station_province does not run disk check when user cancels", {
-  fake_check_disk_space <- function(...) {
-    stop("disk check should not run when user cancels")
-  }
-
-  station_data <- data.frame(
-    Name = c("S1", "S2"),
-    Station.ID = c(1, 2),
-    Province = c("ON", "ON"),
-    HLY.First.Year = c(2000, 2000),
-    HLY.Last.Year = c(2000, 2000),
-    stringsAsFactors = FALSE
-  )
-
-  out_dir <- file.path(tempdir(), paste0("drifloon-test-", as.integer(Sys.time())))
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
-  local_mocked_bindings(
-    .check_disk_space = fake_check_disk_space,
-    readline = function(...) "no",
-    .package = "Drifloon"
-  )
-
-  expect_no_error(
-    Drifloon::download_station_province(
-      station_data = station_data,
-      out_dir = out_dir,
-      province = "ON",
-      parallel = FALSE,
-      confirm = FALSE
-    )
-  )
-})

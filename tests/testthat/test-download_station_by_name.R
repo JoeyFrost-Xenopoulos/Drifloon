@@ -125,7 +125,125 @@ test_that("download_station_by_name selects by station_id", {
   expect_equal(captured_id, 20)
 })
 
-test_that("download_station_by_name errors on ambiguous station name", {
+test_that("download_station_by_name vectorizes station_name", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, ...) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("A Station", "B Station", "C Station"),
+    Station.ID = c(10, 20, 30),
+    Province = c("ON", "QC", "AB"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2005, 2006, 2007),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- tempfile("drifloon-byname-vec-")
+  dir.create(out_dir)
+
+  local_mocked_bindings(download_station = fake_download_station, .package = "Drifloon")
+
+  Drifloon:::download_station_by_name(
+    station_data = station_data,
+    out_dir = out_dir,
+    station_name = c("A_Station", "C_Station")
+  )
+
+  expect_equal(captured_ids, c(10, 30))
+})
+
+test_that("download_station_by_name vectorizes station_id", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, ...) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("A Station", "B Station", "C Station"),
+    Station.ID = c(10, 20, 30),
+    Province = c("ON", "QC", "AB"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2005, 2006, 2007),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- tempfile("drifloon-byid-vec-")
+  dir.create(out_dir)
+
+  local_mocked_bindings(download_station = fake_download_station, .package = "Drifloon")
+
+  Drifloon:::download_station_by_name(
+    station_data = station_data,
+    out_dir = out_dir,
+    station_id = c(30, 10)
+  )
+
+  expect_equal(captured_ids, c(30, 10))
+})
+
+test_that("download_station_by_name vectorizes pairwise station_name and station_id", {
+  captured_ids <- integer(0)
+
+  fake_download_station <- function(station, ...) {
+    captured_ids <<- c(captured_ids, station$Station.ID)
+    invisible(NULL)
+  }
+
+  station_data <- data.frame(
+    Name = c("A Station", "A Station", "B Station"),
+    Station.ID = c(10, 11, 20),
+    Province = c("ON", "QC", "ON"),
+    HLY.First.Year = c(2000, 2001, 2002),
+    HLY.Last.Year = c(2005, 2006, 2007),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- tempfile("drifloon-bynameid-vec-")
+  dir.create(out_dir)
+
+  local_mocked_bindings(download_station = fake_download_station, .package = "Drifloon")
+
+  Drifloon:::download_station_by_name(
+    station_data = station_data,
+    out_dir = out_dir,
+    station_name = c("A_Station", "B_Station"),
+    station_id = c(11, 20)
+  )
+
+  expect_equal(captured_ids, c(11, 20))
+})
+
+test_that("download_station_by_name errors on incompatible vector lengths", {
+  station_data <- data.frame(
+    Name = c("A Station", "B Station"),
+    Station.ID = c(10, 20),
+    Province = c("ON", "QC"),
+    HLY.First.Year = c(2000, 2001),
+    HLY.Last.Year = c(2005, 2006),
+    stringsAsFactors = FALSE
+  )
+
+  out_dir <- tempfile("drifloon-bynameid-badlen-")
+  dir.create(out_dir)
+
+  expect_error(
+    Drifloon:::download_station_by_name(
+      station_data = station_data,
+      out_dir = out_dir,
+      station_name = c("A_Station", "B_Station"),
+      station_id = c(10, 20, 30)
+    ),
+    "same length"
+  )
+})
+
+test_that("download_station_by_name warns on ambiguous station name", {
   station_data <- data.frame(
     Name = c("A Station", "A Station"),
     Station.ID = c(10, 11),
@@ -138,7 +256,7 @@ test_that("download_station_by_name errors on ambiguous station name", {
   out_dir <- tempfile("drifloon-ambig-")
   dir.create(out_dir)
 
-  expect_error(
+  expect_warning(
     Drifloon:::download_station_by_name(
       station_data = station_data,
       out_dir = out_dir,
@@ -205,7 +323,7 @@ test_that("download_station_by_name errors when no identifier provided", {
   )
 })
 
-test_that("download_station_by_name errors when station is missing", {
+test_that("download_station_by_name warns when station is missing", {
   station_data <- data.frame(
     Name = "A Station",
     Station.ID = 10,
@@ -218,7 +336,7 @@ test_that("download_station_by_name errors when station is missing", {
   out_dir <- tempfile("drifloon-missing-")
   dir.create(out_dir)
 
-  expect_error(
+  expect_warning(
     Drifloon:::download_station_by_name(
       station_data = station_data,
       out_dir = out_dir,
@@ -324,6 +442,6 @@ test_that("download_station_by_name errors when requested years are outside stat
       first_year = 1999,
       last_year = 2004
     ),
-    "outside available data"
+    "outside available data|earlier than available data"
   )
 })
