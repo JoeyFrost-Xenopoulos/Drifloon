@@ -100,11 +100,13 @@ download_station_month <- function(station_name = NULL,
 
 #' Download station data by name or station ID
 #'
-#' Wrapper to download data for a station identified by
-#' either its name or station ID.
+#' Wrapper to download data for one or more stations identified by
+#' their name(s) and/or station ID(s).
 #'
-#' @param station_name Character. Station name (optional).
-#' @param station_id Numeric. Station ID (optional).
+#' @param station_name Character. Station name(s) (optional). 
+#'   Can be a single station name or a vector of names.
+#' @param station_id Numeric. Station ID(s) (optional). 
+#'   Can be a single ID or a vector of IDs.
 #' @param out_dir Character. Base output directory.
 #'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
 #' @param station_data Data frame containing station metadata. Optional;
@@ -117,10 +119,21 @@ download_station_month <- function(station_name = NULL,
 #' @return Invisibly returns \code{NULL}.
 #'
 #' @details
-#' Either \code{station_name} or \code{station_id} must be provided.
-#' If both are provided, \code{station_name} takes precedence.
+#' Either \code{station_name} or \code{station_id} must be provided (both can be used together).
+#' 
+#' When vectorizing (passing multiple stations):
+#' \itemize{
+#'   \item If only \code{station_name} is a vector, each name is downloaded separately.
+#'   \item If only \code{station_id} is a vector, each ID is downloaded separately.
+#'   \item If both are vectors, they must be the same length for pairwise matching, 
+#'     or one can have length 1 and will be recycled.
+#' }
+#'
 #' If \code{first_year} or \code{last_year} are outside the station metadata
 #' range (\code{HLY.First.Year} to \code{HLY.Last.Year}), an error is thrown.
+#' 
+#' Station lookups that result in multiple matches or no matches will issue warnings
+#' and skip to the next station.
 #'
 #' @export
 download_station_by_name <- function(station_name = NULL,
@@ -136,46 +149,95 @@ download_station_by_name <- function(station_name = NULL,
     station_data <- .load_station_metadata()
   }
 
-  if (!is.null(station_name)) {
-    idx_name <- .find_station_name_index(station_name, station_data)
-    idx <- .find_station_name_index(station_name, station_data, station_id = station_id)
-
-    if (length(idx) > 1) {
-      matches <- station_data[idx_name, c("Name", "Station.ID")]
-      options <- paste0(matches$Name, " (Station.ID: ", matches$Station.ID, ")")
-      stop(
-        paste0(
-          "Multiple stations matched '", station_name, "'. ",
-          "Please clarify by providing station_id. Matches: ",
-          paste(options, collapse = "; ")
-        )
+  if (!is.null(station_name) && !is.null(station_id)) {
+    # Both provided - must be compatible lengths
+    if (length(station_name) == length(station_id)) {
+      stations_to_download <- list(
+        names = as.character(station_name),
+        ids = station_id
       )
-    }
-    } else if (!is.null(station_id)) {
-    idx <- which(station_data$Station.ID == station_id)
+    } else if (length(station_name) == 1) {
+      stations_to_download <- list(
+        names = rep(as.character(station_name), length(station_id)),
+        ids = station_id
+      )
+    } else if (length(station_id) == 1) {
+      stations_to_download <- list(
+        names = as.character(station_name),
+        ids = rep(station_id, length(station_name))
+      )
     } else {
+      stop("station_name and station_id must be the same length, or one must have length 1.")
+    }
+  } else if (!is.null(station_name)) {
+    stations_to_download <- list(
+      names = as.character(station_name),
+      ids = rep(NA, length(station_name))
+    )
+  } else if (!is.null(station_id)) {
+    stations_to_download <- list(
+      names = rep(NA, length(station_id)),
+      ids = station_id
+    )
+  } else {
     stop("Must provide station_name or station_id.")
+  }
+
+  # Loop through each station and download
+  for (i in seq_along(stations_to_download$names)) {
+    current_name <- stations_to_download$names[i]
+    current_id <- stations_to_download$ids[i]    
+    if (!is.na(current_name)) {
+      idx <- .find_station_name_index(current_name, station_data, 
+                                      station_id = if (!is.na(current_id)) current_id else NULL)
+
+      if (length(idx) > 1) {
+        idx_name <- .find_station_name_index(current_name, station_data)
+        matches <- station_data[idx_name, c("Name", "Station.ID")]
+        options <- paste0(matches$Name, " (Station.ID: ", matches$Station.ID, ")")
+        warning(
+          paste0(
+            "Multiple stations matched '", current_name, "'. ",
+            "Skipping. Matches: ",
+            paste(options, collapse = "; ")
+          )
+        )
+        next
+      }
+    } else if (!is.na(current_id)) {
+      idx <- which(station_data$Station.ID == current_id)
+    } else {
+      warning("Neither station_name nor station_id provided for iteration ", i)
+      next
     }
 
-  # check if station exists
-  if (length(idx) == 0) stop("Station not found.")
-  station_row <- as.list(station_data[idx[1], ])
-  station_row$Folder.Name <- .station_output_label(station_row$Name, station_row$Station.ID, station_data)
-  download_station(
-    station_row,
-    out_dir,
-    first_year,
-    last_year,
-    parallel = parallel
-  )
+    # Check if station exists
+    if (length(idx) == 0) {
+      warning("Station not found: ", if (!is.na(current_name)) paste0("'", current_name, "'") else paste0("ID ", current_id))
+      next
+    }
+
+    station_row <- as.list(station_data[idx[1], ])
+    station_row$Folder.Name <- .station_output_label(station_row$Name, station_row$Station.ID, station_data)
+    download_station(
+      station_row,
+      out_dir,
+      first_year,
+      last_year,
+      parallel = parallel
+    )
+  }
+
+  invisible(NULL)
 }
 
-#' Download data for all stations in a province
+#' Download data for all stations in one or more provinces
 #'
-#' Iterates over all stations in a selected province and downloads
+#' Iterates over all stations in one or more selected provinces and downloads
 #' hourly data for each.
 #'
-#' @param province Character. Province name or abbreviation.
+#' @param province Character. Province name(s) or abbreviation(s).
+#'   Can be a single province or a vector of provinces.
 #' @param station_data Data frame of station metadata. Optional.
 #' @param out_dir Character. Base output directory.
 #'   If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.
@@ -190,10 +252,12 @@ download_station_by_name <- function(station_name = NULL,
 #' @return Invisibly returns \code{NULL}.
 #'
 #' @details
-#' Could trigger a very large number of downloads.
+#' Could trigger a very large number of downloads when using multiple provinces.
 #' By default, an estimated file count and space requirement is shown before
 #' downloading begins. Set \code{confirm = TRUE} to skip this warning.
 #'
+#' When multiple provinces are provided, provinces that have no stations or fail
+#' to match will issue a warning and skip to the next province.
 #'
 #' @export
 download_station_province <- function(province,
@@ -221,8 +285,8 @@ download_station_province <- function(province,
     )
   }
 
-  if (missing(province) || is.null(province) || !is.character(province) || length(province) != 1) {
-    stop("province must be provided as a single character value.")
+  if (missing(province) || is.null(province) || !is.character(province)) {
+    stop("province must be provided as a character value (single or vector).")
   }
 
   out_dir <- .resolve_out_dir(out_dir)
@@ -231,21 +295,35 @@ download_station_province <- function(province,
     station_data <- .load_station_metadata()
   }
 
-  province_name <- .province_normalize(province)
-  station_province <- .province_normalize(station_data$Province, strict = FALSE)
-  stations <- station_data[!is.na(station_province) & station_province == province_name, ]
+  provinces_to_download <- as.character(province)
 
-  if (nrow(stations) == 0) {
-    stop("No stations found for province: ", province_name)
+  # Collect all stations from all provinces for estimation
+  all_province_names <- .province_normalize(provinces_to_download)
+  station_province <- .province_normalize(station_data$Province, strict = FALSE)
+  all_stations <- data.frame()
+
+  for (prov in all_province_names) {
+    prov_stations <- station_data[!is.na(station_province) & station_province == prov, ]
+    if (nrow(prov_stations) > 0) {
+      all_stations <- rbind(all_stations, prov_stations)
+    }
   }
 
-  estimate <- .estimate_download_size(stations, first_year, last_year)
+  if (nrow(all_stations) == 0) {
+    stop("No stations found for province(s): ", paste(all_province_names, collapse = ", "))
+  }
+
+  estimate <- .estimate_download_size(all_stations, first_year, last_year)
 
   # Estimate and warn about download size
   if (!isTRUE(confirm)) {
     message("\n=== Download Estimate ===")
-    message("Province: ", province_name)
-    message("Stations: ", nrow(stations))
+    if (length(provinces_to_download) == 1) {
+      message("Province: ", all_province_names[1])
+    } else {
+      message("Provinces: ", paste(all_province_names, collapse = ", "))
+    }
+    message("Total stations: ", nrow(all_stations))
     message("Estimated files: ", estimate$count)
     if (estimate$size_gb >= 1) {
       message("Estimated space: ", estimate$size_gb, " GB")
@@ -262,19 +340,29 @@ download_station_province <- function(province,
 
   .check_disk_space(out_dir, estimated_bytes = estimate$count * 130000)
 
-  station_rows <- lapply(seq_len(nrow(stations)), function(i) {
-    as.list(stations[i, , drop = FALSE])
-  })
+  # Loop through each province
+  for (prov in all_province_names) {
+    stations <- station_data[!is.na(station_province) & station_province == prov, ]
 
-  if (isTRUE(parallel)) {
-    furrr::future_walk(station_rows, function(station_row) {
-      # Avoid nested futures by keeping per-station downloads sequential here.
-      download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
+    if (nrow(stations) == 0) {
+      warning("No stations found for province: ", prov)
+      next
+    }
+
+    station_rows <- lapply(seq_len(nrow(stations)), function(i) {
+      as.list(stations[i, , drop = FALSE])
     })
-  } else {
-    purrr::walk(station_rows, function(station_row) {
-      download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
-    })
+
+    if (isTRUE(parallel)) {
+      furrr::future_walk(station_rows, function(station_row) {
+        # Avoid nested futures by keeping per-station downloads sequential here.
+        download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
+      })
+    } else {
+      purrr::walk(station_rows, function(station_row) {
+        download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
+      })
+    }
   }
 
   invisible(NULL)
