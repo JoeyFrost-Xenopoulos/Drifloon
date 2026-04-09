@@ -15,9 +15,11 @@ download_station_by_name(
 )
 }
 \arguments{
-\item{station_name}{Character. Station name (optional).}
+\item{station_name}{Character. Station name(s) (optional). 
+Can be a single station name or a vector of names.}
 
-\item{station_id}{Numeric. Station ID (optional).}
+\item{station_id}{Numeric. Station ID(s) (optional). 
+Can be a single ID or a vector of IDs.}
 
 \item{out_dir}{Character. Base output directory.
 If not supplied, defaults to \code{file.path(getwd(), "drifloon_output")}.}
@@ -36,12 +38,23 @@ using \code{furrr::future_pwalk}. Default is \code{FALSE}.}
 Invisibly returns \code{NULL}.
 }
 \description{
-Wrapper to download data for a station identified by
-either its name or station ID.
+Wrapper to download data for one or more stations identified by
+their name(s) and/or station ID(s).
 }
 \details{
-Either \code{station_name} or \code{station_id} must be provided.
-If both are provided, \code{station_name} takes precedence.
+Either \code{station_name} or \code{station_id} must be provided (both can be used together).
+
+When vectorizing (passing multiple stations):
+\itemize{
+  \item If only \code{station_name} is a vector, each name is downloaded separately.
+  \item If only \code{station_id} is a vector, each ID is downloaded separately.
+  \item If both are vectors, they must be the same length for pairwise matching, 
+    or one can have length 1 and will be recycled.
+}
+
 If \code{first_year} or \code{last_year} are outside the station metadata
 range (\code{HLY.First.Year} to \code{HLY.Last.Year}), an error is thrown.
+
+Station lookups that result in multiple matches or no matches will issue warnings
+and skip to the next station.
 }

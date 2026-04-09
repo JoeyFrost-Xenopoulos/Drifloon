@@ -338,7 +338,7 @@ download_station_province <- function(province,
     }
   }
 
-  # Loop through each province
+  # Loop through each province with master counter
   for (prov in all_province_names) {
     stations <- station_data[!is.na(station_province) & station_province == prov, ]
 
@@ -347,19 +347,26 @@ download_station_province <- function(province,
       next
     }
 
+    cat("\n=== Downloading Province:", prov, "===\n")
+    cat("Total stations:", nrow(stations), "\n\n")
+
     station_rows <- lapply(seq_len(nrow(stations)), function(i) {
       as.list(stations[i, , drop = FALSE])
     })
 
-    if (isTRUE(parallel)) {
-      furrr::future_walk(station_rows, function(station_row) {
-        # Avoid nested futures by keeping per-station downloads sequential here.
-        download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
-      })
+    # Sequential: show master progress counter
+    if (!isTRUE(parallel)) {
+      for (idx in seq_along(station_rows)) {
+        station_name <- station_rows[[idx]]$Name
+        cat(sprintf("\n[Station %d/%d] %s\n", idx, nrow(stations), station_name))
+        download_station(station_rows[[idx]], out_dir, first_year, last_year, parallel = FALSE)
+      }
     } else {
-      purrr::walk(station_rows, function(station_row) {
+      # Parallel: download without master counter (futures make tracking difficult)
+      furrr::future_walk(station_rows, function(station_row) {
         download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
       })
+      cat(sprintf("\nCompleted %d/%d stations.\n", nrow(stations), nrow(stations)))
     }
   }
 
@@ -419,11 +426,29 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
     }
   }
 
-  walker <- if (isTRUE(parallel)) furrr::future_pwalk else purrr::pwalk
+  cat("\n=== Downloading All Stations ===\n")
+  cat("Total stations:", nrow(station_data), "\n\n")
 
-  walker(station_data, function(...) {
-    download_station(list(...), out_dir, first_year, last_year, parallel = FALSE)
+  station_rows <- lapply(seq_len(nrow(station_data)), function(i) {
+    as.list(station_data[i, , drop = FALSE])
   })
+
+  # Sequential: show master progress counter
+  if (!isTRUE(parallel)) {
+    for (idx in seq_along(station_rows)) {
+      station_name <- station_rows[[idx]]$Name
+      cat(sprintf("\n[Station %d/%d] %s\n", idx, nrow(station_data), station_name))
+      download_station(station_rows[[idx]], out_dir, first_year, last_year, parallel = FALSE)
+    }
+  } else {
+    # Parallel: download without master counter (futures make tracking difficult)
+    furrr::future_walk(station_rows, function(station_row) {
+      download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
+    })
+    cat(sprintf("\nCompleted %d/%d stations.\n", nrow(station_data), nrow(station_data)))
+  }
+
+  invisible(NULL)
 }
 
 #' Sync station metadata from Environment Canada

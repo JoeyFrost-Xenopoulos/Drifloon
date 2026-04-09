@@ -2,7 +2,7 @@
 % Please edit documentation in R/Drifblim.R
 \name{download_station_province}
 \alias{download_station_province}
-\title{Download data for all stations in a province}
+\title{Download data for all stations in one or more provinces}
 \usage{
 download_station_province(
   province,
@@ -15,7 +15,8 @@ download_station_province(
 )
 }
 \arguments{
-\item{province}{Character. Province name or abbreviation.}
+\item{province}{Character. Province name(s) or abbreviation(s).
+Can be a single province or a vector of provinces.}
 
 \item{station_data}{Data frame of station metadata. Optional.}
 
@@ -37,11 +38,14 @@ prompt and proceeds with download.}
 Invisibly returns \code{NULL}.
 }
 \description{
-Iterates over all stations in a selected province and downloads
+Iterates over all stations in one or more selected provinces and downloads
 hourly data for each.
 }
 \details{
-Could trigger a very large number of downloads.
+Could trigger a very large number of downloads when using multiple provinces.
 By default, an estimated file count and space requirement is shown before
 downloading begins. Set \code{confirm = TRUE} to skip this warning.
+
+When multiple provinces are provided, provinces that have no stations or fail
+to match will issue a warning and skip to the next province.
 }
