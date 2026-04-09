@@ -6,7 +6,6 @@
 *.Rproj
 /doc/
 /Meta/
-docs
 *.db
 *.csv
 sticker/
