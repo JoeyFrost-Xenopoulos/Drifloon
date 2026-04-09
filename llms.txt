@@ -157,12 +157,14 @@ MIT
 - [`download_station_month()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/download_station_month.md)
   : Download hourly climate data for a single station-year-month
 - [`download_station_province()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/download_station_province.md)
-  : Download data for all stations in a province
+  : Download data for all stations in one or more provinces
 - [`Drifloon-package`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/drifloon.md)
   [`Drifloon`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/drifloon.md)
   : Drifloon: Canadian Weather Data Download Toolkit
 - [`load_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/load_metadata.md)
   : Load station metadata
+- [`missing_observations_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_observations_diagnostics.md)
+  : Diagnose Missing Observations in a Drifloon Database
 - [`sync_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/sync_metadata.md)
   : Sync station metadata from Environment Canada
 

@@ -1,7 +1,7 @@
-# Download data for all stations in a province
+# Download data for all stations in one or more provinces
 
-Iterates over all stations in a selected province and downloads hourly
-data for each.
+Iterates over all stations in one or more selected provinces and
+downloads hourly data for each.
 
 ## Usage
 
@@ -21,7 +21,8 @@ download_station_province(
 
 - province:
 
-  Character. Province name or abbreviation.
+  Character. Province name(s) or abbreviation(s). Can be a single
+  province or a vector of provinces.
 
 - station_data:
 
@@ -58,6 +59,10 @@ Invisibly returns `NULL`.
 
 ## Details
 
-Could trigger a very large number of downloads. By default, an estimated
-file count and space requirement is shown before downloading begins. Set
-`confirm = TRUE` to skip this warning.
+Could trigger a very large number of downloads when using multiple
+provinces. By default, an estimated file count and space requirement is
+shown before downloading begins. Set `confirm = TRUE` to skip this
+warning.
+
+When multiple provinces are provided, provinces that have no stations or
+fail to match will issue a warning and skip to the next province.
