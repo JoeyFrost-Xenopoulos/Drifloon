@@ -1,6 +1,6 @@
 # Drifloon
 
-<img src="sticker/drifloon_hex.png" align="right" width="140" alt="Drifloon hex sticker" />
+<img src="man/figures/drifloon_hex.png" align="right" width="140" alt="Drifloon hex sticker" />
 
 Drifloon helps you discover and download historical hourly weather data from Environment and Climate Change Canada (ECCC), then optionally build a local SQLite database for analysis.
 
