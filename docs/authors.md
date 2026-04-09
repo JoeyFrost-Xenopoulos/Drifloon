@@ -2,7 +2,7 @@
 
 ## Authors
 
-- **Blinkey**. Maintainer.
+- **Joey Frost-Xenopoulos**. Maintainer.
 
 ## Citation
 

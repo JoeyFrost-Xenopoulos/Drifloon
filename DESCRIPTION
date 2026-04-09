@@ -3,7 +3,7 @@ Type: Package
 Title: Weather Downloader
 Version: 0.0.1
 Author: Joey Frost-Xenopoulos
-Maintainer: Blinkey <joeyfrostxenopoulos@trentu.ca>
+Maintainer: Joey Frost-Xenopoulos <joeyfrostxenopoulos@trentu.ca>
 Description: Downloads Canadian weather station data.
 License: MIT
 URL: https://github.com/JoeyFrost-Xenopoulos/Drifloon, https://joeyfrost-xenopoulos.github.io/Drifloon/
