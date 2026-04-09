@@ -3,6 +3,13 @@ url: ~
 development:
   mode: auto
 
+repo:
+  url:
+    home: https://github.com/JoeyFrost-Xenopoulos/Drifloon/
+    source: https://github.com/JoeyFrost-Xenopoulos/Drifloon/blob/main/
+    issue: https://github.com/JoeyFrost-Xenopoulos/Drifloon/issues/
+    user: https://github.com/
+
 template:
   bootstrap: 5
 

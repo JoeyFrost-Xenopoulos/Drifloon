@@ -6,6 +6,8 @@ Author: Joey Frost-Xenopoulos
 Maintainer: Blinkey <joeyfrostxenopoulos@trentu.ca>
 Description: Downloads Canadian weather station data.
 License: MIT
+URL: https://github.com/JoeyFrost-Xenopoulos/Drifloon
+BugReports: https://github.com/JoeyFrost-Xenopoulos/Drifloon/issues
 Encoding: UTF-8
 LazyData: true
 Imports:
