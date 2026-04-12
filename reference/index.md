@@ -21,5 +21,9 @@
   : Load station metadata
 - [`missing_observations_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_observations_diagnostics.md)
   : Diagnose Missing Observations in a Drifloon Database
+- [`missing_variables_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_variables_diagnostics.md)
+  : Diagnose Missingness by Variable in a Drifloon Database
+- [`out_of_range_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/out_of_range_diagnostics.md)
+  : Diagnose Out-of-Range Values Using Baseline Variable Ranges
 - [`sync_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/sync_metadata.md)
   : Sync station metadata from Environment Canada

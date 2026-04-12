@@ -1,12 +1,13 @@
-# Diagnose Missing Observations in a Drifloon Database
+# Diagnose Missingness by Variable in a Drifloon Database
 
-Runs missing-data diagnostics on the Observation table for all data or a
-user-selected subset (by Station ID and/or year range).
+Computes missing-cell percentages for each variable in the Observation
+table using the selected diagnostic scope. Optionally returns a larger
+table with a station-level breakdown for each variable.
 
 ## Usage
 
 ``` r
-missing_observations_diagnostics(
+missing_variables_diagnostics(
   base_dir = getwd(),
   db_name = "climate_database.db",
   out_dir = file.path(base_dir, "drifloon_output", "diagnostics"),
@@ -14,6 +15,7 @@ missing_observations_diagnostics(
   years = NULL,
   missing_columns = c("Temp_C", "Dew_Point_C", "Rel_Hum", "Wind_Dir_deg", "Wind_Spd_kmh",
     "Visibility_km", "Stn_Press_kPa", "Hmdx", "Wind_Chill", "Precip_Amount"),
+  include_station_breakdown = FALSE,
   write_csv = FALSE,
   verbose = TRUE,
   max_rows_print = 20L
@@ -49,6 +51,11 @@ missing_observations_diagnostics(
   Character vector of Observation columns to include in missingness
   calculations.
 
+- include_station_breakdown:
+
+  Logical. If `TRUE`, includes a larger table with one row per
+  station-variable pair.
+
 - write_csv:
 
   Logical. If `TRUE`, writes diagnostic CSV files. Default is `FALSE`.
@@ -60,11 +67,11 @@ missing_observations_diagnostics(
 
 - max_rows_print:
 
-  Integer. Maximum rows to print for each detailed table shown in
-  detailed printed tables. Defaults to `20`.
+  Integer. Maximum rows to print for detailed tables shown in detailed
+  printed tables. Defaults to `20`.
 
 ## Value
 
-A named list with `missing_by_station`, `missing_by_station_year`,
-`missing_hour_gaps`, and `missing_summary` data frames using readable
-column titles. The return value is invisible.
+A named list with `missing_by_variable`, `missing_variable_summary`, and
+(optionally) `missing_by_station_variable`. The return value is
+invisible.
