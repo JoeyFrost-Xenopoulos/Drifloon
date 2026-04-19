@@ -281,12 +281,34 @@ diagnostics.</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="detect-heatwaves-from-baseline-temperature-thresholds">Detect heatwaves from baseline temperature thresholds<a class="anchor" aria-label="anchor" href="#detect-heatwaves-from-baseline-temperature-thresholds"></a>
+</h2>
+<p>Use <code><a href="../reference/heatwave_diagnostics.html">heatwave_diagnostics()</a></code> to detect heatwave events
+defined as two or more consecutive hot days. A day is flagged when
+either daily maximum temperature is above <code>mean + 5 * sd</code> or
+daily average temperature is above <code>mean + 3 * sd</code> from the
+1980-2020 baseline ranges.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">heatwave_diag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/heatwave_diagnostics.html">heatwave_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  min_consecutive_days <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  max_sd_threshold <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  avg_sd_threshold <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Event table and per-day flags are available in the returned list</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">heatwave_diag</span><span class="op">$</span><span class="va">heatwave_events</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">heatwave_diag</span><span class="op">$</span><span class="va">heatwave_days</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="plot-station-outliers-against-baseline-bounds">Plot station outliers against baseline bounds<a class="anchor" aria-label="anchor" href="#plot-station-outliers-against-baseline-bounds"></a>
 </h2>
 <p>Use <code><a href="../reference/plot_station_outliers.html">plot_station_outliers()</a></code> to visualize a station
 across variables and highlight points outside the SD threshold in
 red.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># By Station ID</span></span>
 <span><span class="fu"><a href="../reference/plot_station_outliers.html">plot_station_outliers</a></span><span class="op">(</span></span>
 <span>  station <span class="op">=</span> <span class="fl">5237</span>,</span>
@@ -328,14 +350,14 @@ red.</p>
 </li>
 </ul>
 <p>You can inspect internals for debugging with triple-colon access:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">Drifloon</span><span class="fu">:::</span><span class="fu"><a href="../reference/dot-normalize_station_name_key.html">.normalize_station_name_key</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Montréal/Trudeau"</span>, <span class="st">"Montreal Trudeau"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">Drifloon</span><span class="fu">:::</span><span class="fu"><a href="../reference/dot-province_normalize.html">.province_normalize</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"on"</span>, <span class="st">"Ontario"</span>, <span class="st">"QC"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="typical-end-to-end-workflow">Typical end-to-end workflow<a class="anchor" aria-label="anchor" href="#typical-end-to-end-workflow"></a>
 </h2>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/JoeyFrost-Xenopoulos/Drifloon" class="external-link">Drifloon</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 1) Refresh metadata</span></span>
@@ -384,7 +406,14 @@ red.</p>
 <span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 9) Plot station outliers (outside SD shown in red)</span></span>
+<span><span class="co"># 9) Detect heatwave events (2+ consecutive hot days)</span></span>
+<span><span class="fu"><a href="../reference/heatwave_diagnostics.html">heatwave_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  min_consecutive_days <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 10) Plot station outliers (outside SD shown in red)</span></span>
 <span><span class="fu"><a href="../reference/plot_station_outliers.html">plot_station_outliers</a></span><span class="op">(</span>station <span class="op">=</span> <span class="fl">5237</span>, sd_threshold <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
