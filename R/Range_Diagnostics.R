@@ -523,6 +523,346 @@ range_diagnostics <- function(
   invisible(result)
 }
 
+#' Plot Station Observations Against Baseline SD Bounds
+#'
+#' Creates one panel per variable for a selected station and highlights
+#' observations outside a baseline \eqn{\mu \pm k\sigma} range in red.
+#'
+#' @param station Station identifier. Either a single Station ID (numeric) or
+#'   station name (character).
+#' @param base_dir Character. Root directory containing the database folder.
+#' @param db_name Character. SQLite database file name under
+#'   \code{file.path(base_dir, "database")}.
+#' @param province Optional character vector of province names to include.
+#' @param years Optional single year or two-value year range.
+#' @param variables Character vector of Observation variable names to plot.
+#' @param sd_threshold Numeric. SD multiplier for the bounds. Defaults to
+#'   \code{3}.
+#' @param panels_per_row Integer. Number of variable panels per row.
+#' @param canada_ranges_rds_path Character. Path to Canada-wide baseline range
+#'   RDS file (1980-2020).
+#' @param province_ranges_rds_path Character. Path to province baseline range
+#'   RDS file (1980-2020).
+#' @param baseline_rds_path Character. Optional override RDS path for the
+#'   baseline ranges used in the diagnostics.
+#' @param point_cex Numeric. Point size used for plotting.
+#' @param verbose Logical. If \code{TRUE}, prints a short summary table.
+#'
+#' @return Invisibly returns a list with station metadata, selected baseline
+#'   profile, and a per-variable summary of observations outside bounds.
+#' @export
+plot_station_outliers <- function(
+  station,
+  base_dir = getwd(),
+  db_name = "climate_database.db",
+  province = NULL,
+  years = NULL,
+  variables = c(
+    "Temp_C",
+    "Dew_Point_C",
+    "Rel_Hum",
+    "Wind_Dir_deg",
+    "Wind_Spd_kmh",
+    "Visibility_km",
+    "Stn_Press_kPa",
+    "Hmdx",
+    "Wind_Chill"
+  ),
+  sd_threshold = 3,
+  panels_per_row = 3L,
+  canada_ranges_rds_path = file.path(base_dir, "data", "variable_ranges_Canada_1980-2020.rds"),
+  province_ranges_rds_path = file.path(base_dir, "data", "variable_ranges_province_1980-2020.rds"),
+  baseline_rds_path = NULL,
+  point_cex = 0.6,
+  verbose = TRUE
+) {
+  if (missing(station)) {
+    stop("station must be provided (Station ID or Station Name).", call. = FALSE)
+  }
+  if (!is.character(base_dir) || length(base_dir) != 1 || !nzchar(base_dir)) {
+    stop("base_dir must be a single, non-empty character path.", call. = FALSE)
+  }
+  if (!is.character(db_name) || length(db_name) != 1 || !nzchar(db_name)) {
+    stop("db_name must be a single, non-empty character value.", call. = FALSE)
+  }
+  if (!is.character(variables) || length(variables) == 0) {
+    stop("variables must be a non-empty character vector.", call. = FALSE)
+  }
+  if (!is.numeric(sd_threshold) || length(sd_threshold) != 1 || is.na(sd_threshold) || sd_threshold <= 0) {
+    stop("sd_threshold must be a single positive number.", call. = FALSE)
+  }
+  if (!is.numeric(panels_per_row) || length(panels_per_row) != 1 || is.na(panels_per_row) || panels_per_row < 1) {
+    stop("panels_per_row must be a single positive number.", call. = FALSE)
+  }
+  panels_per_row <- as.integer(panels_per_row)
+  if (!is.numeric(point_cex) || length(point_cex) != 1 || is.na(point_cex) || point_cex <= 0) {
+    stop("point_cex must be a single positive number.", call. = FALSE)
+  }
+  if (!is.logical(verbose) || length(verbose) != 1 || is.na(verbose)) {
+    stop("verbose must be TRUE or FALSE.", call. = FALSE)
+  }
+
+  base_dir <- normalizePath(base_dir, winslash = "/", mustWork = FALSE)
+  db_path <- file.path(base_dir, "database", db_name)
+
+  if (!file.exists(db_path)) {
+    stop("Database file not found: ", db_path, call. = FALSE)
+  }
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+
+  .assert_required_tables(con)
+  .assert_required_columns(con, "Station", c("Station_ID", "Station_Name", "Climate_ID"))
+
+  station_table <- DBI::dbGetQuery(
+    con,
+    "SELECT Station_ID, Station_Name FROM Station ORDER BY Station_Name"
+  )
+  if (nrow(station_table) == 0) {
+    stop("Station table is empty.", call. = FALSE)
+  }
+
+  station_id <- NA_integer_
+  station_name <- NA_character_
+
+  if (is.numeric(station) && length(station) == 1 && !is.na(station)) {
+    station_id <- as.integer(station)
+    idx <- which(as.integer(station_table$Station_ID) == station_id)
+    if (length(idx) != 1) {
+      stop("Unknown station ID: ", station_id, call. = FALSE)
+    }
+    station_name <- as.character(station_table$Station_Name[idx[1]])
+  } else if (is.character(station) && length(station) == 1 && nzchar(station)) {
+    query_key <- .normalize_station_name_key(station)
+    station_keys <- .normalize_station_name_key(station_table$Station_Name)
+    idx <- which(station_keys == query_key)
+    if (length(idx) == 0) {
+      stop("No station matched name: ", station, call. = FALSE)
+    }
+    if (length(idx) > 1) {
+      stop(
+        "Multiple stations matched name '",
+        station,
+        "'. Please pass station ID instead.",
+        call. = FALSE
+      )
+    }
+    station_id <- as.integer(station_table$Station_ID[idx[1]])
+    station_name <- as.character(station_table$Station_Name[idx[1]])
+  } else {
+    stop("station must be a single Station ID (numeric) or Station Name (character).", call. = FALSE)
+  }
+
+  observation_fields <- DBI::dbListFields(con, "Observation")
+  missing_in_observation <- setdiff(variables, observation_fields)
+  if (length(missing_in_observation) > 0) {
+    stop(
+      "Observation is missing variable column(s): ",
+      paste(missing_in_observation, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  baseline_info <- .select_out_of_range_baseline(
+    con = con,
+    station_ids = station_id,
+    province = province,
+    canada_ranges_rds_path = canada_ranges_rds_path,
+    province_ranges_rds_path = province_ranges_rds_path,
+    baseline_rds_path = baseline_rds_path
+  )
+  baseline_ranges <- baseline_info$ranges
+  baseline_ranges <- baseline_ranges[baseline_ranges$Variable %in% variables, , drop = FALSE]
+
+  missing_in_baseline <- setdiff(variables, baseline_ranges$Variable)
+  if (length(missing_in_baseline) > 0) {
+    stop(
+      "Baseline ranges are missing variable(s): ",
+      paste(missing_in_baseline, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  baseline_ranges <- baseline_ranges[order(match(baseline_ranges$Variable, variables)), , drop = FALSE]
+  baseline_ranges$Mean_Value <- suppressWarnings(as.numeric(baseline_ranges$Mean_Value))
+  baseline_ranges$Sd_Value <- suppressWarnings(as.numeric(baseline_ranges$Sd_Value))
+  invalid_baseline <- !is.finite(baseline_ranges$Mean_Value) |
+    !is.finite(baseline_ranges$Sd_Value) |
+    baseline_ranges$Sd_Value < 0
+  if (any(invalid_baseline)) {
+    stop(
+      "Baseline ranges contain invalid Mean_Value/Sd_Value for variable(s): ",
+      paste(baseline_ranges$Variable[invalid_baseline], collapse = ", "),
+      ". Mean_Value and Sd_Value must be finite numbers, and Sd_Value must be >= 0.",
+      call. = FALSE
+    )
+  }
+
+  where_clause <- .resolve_diagnostic_scope(
+    con,
+    station_ids = station_id,
+    province_names = province,
+    years = years
+  )
+
+  variable_sql <- paste(sprintf("o.%s AS %s", variables, variables), collapse = ",\n        ")
+  station_data <- DBI::dbGetQuery(
+    con,
+    sprintf(
+      "
+      SELECT
+        o.Year,
+        o.Month,
+        o.Day,
+        o.Time_LST,
+        %s
+      FROM Observation o
+      INNER JOIN Station s ON s.Station_ID = o.Station_ID
+      %s
+      ORDER BY o.Time_LST;
+      ",
+      variable_sql,
+      where_clause
+    )
+  )
+
+  if (nrow(station_data) == 0) {
+    stop("No observations matched the selected station/scope.", call. = FALSE)
+  }
+
+  safe_parse_time <- function(x, formats) {
+    parsed <- rep(as.POSIXct(NA), length(x))
+    for (fmt in formats) {
+      idx <- which(is.na(parsed) & !is.na(x) & nzchar(x))
+      if (length(idx) == 0) {
+        break
+      }
+      trial <- tryCatch(
+        suppressWarnings(as.POSIXct(x[idx], format = fmt, tz = "UTC")),
+        error = function(e) rep(as.POSIXct(NA), length(idx))
+      )
+      parsed[idx] <- trial
+    }
+    parsed
+  }
+
+  time_raw <- as.character(station_data$Time_LST)
+  time_raw[is.na(time_raw)] <- ""
+
+  time_x <- safe_parse_time(
+    time_raw,
+    c(
+      "%Y-%m-%d %H:%M:%S",
+      "%Y-%m-%d %H:%M",
+      "%Y/%m/%d %H:%M:%S",
+      "%Y/%m/%d %H:%M",
+      "%Y-%m-%dT%H:%M:%S",
+      "%Y-%m-%dT%H:%M"
+    )
+  )
+
+  # Fallback for time-only entries (for example, "13:00") using Year/Month/Day.
+  needs_time_only <- is.na(time_x) & grepl("^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?$", time_raw)
+  if (any(needs_time_only)) {
+    date_prefix <- sprintf(
+      "%04d-%02d-%02d",
+      as.integer(station_data$Year[needs_time_only]),
+      as.integer(station_data$Month[needs_time_only]),
+      as.integer(station_data$Day[needs_time_only])
+    )
+    datetime_text <- paste(date_prefix, time_raw[needs_time_only])
+    repaired <- safe_parse_time(
+      datetime_text,
+      c("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M")
+    )
+    time_x[needs_time_only] <- repaired
+  }
+
+  valid_time_n <- sum(!is.na(time_x))
+  use_time_axis <- valid_time_n >= max(1L, floor(0.8 * nrow(station_data)))
+  x_values <- if (use_time_axis) time_x else seq_len(nrow(station_data))
+  x_label <- if (use_time_axis) "Time (LST)" else "Observation Index"
+
+  old_par <- graphics::par(no.readonly = TRUE)
+  on.exit(graphics::par(old_par), add = TRUE)
+
+  n_vars <- length(variables)
+  n_rows <- ceiling(n_vars / panels_per_row)
+  graphics::par(mfrow = c(n_rows, panels_per_row), mar = c(3.5, 3.8, 2.6, 1.2), oma = c(0, 0, 2, 0))
+
+  summary_rows <- vector("list", length = n_vars)
+
+  for (i in seq_len(n_vars)) {
+    var_name <- variables[i]
+    y <- suppressWarnings(as.numeric(station_data[[var_name]]))
+
+    mu <- baseline_ranges$Mean_Value[i]
+    sigma <- baseline_ranges$Sd_Value[i]
+    lower <- mu - sd_threshold * sigma
+    upper <- mu + sd_threshold * sigma
+
+    checked <- sum(!is.na(y))
+    flagged <- sum(!is.na(y) & (y < lower | y > upper))
+
+    plot_title <- sprintf("%s (%d/%d)", .prettify_missing_column_name(var_name), flagged, checked)
+
+    graphics::plot(
+      x_values,
+      y,
+      pch = 16,
+      cex = point_cex,
+      col = "black",
+      xlab = x_label,
+      ylab = .prettify_missing_column_name(var_name),
+      main = plot_title
+    )
+    graphics::abline(h = c(lower, upper), col = "steelblue", lty = 2)
+
+    out_idx <- which(!is.na(y) & (y < lower | y > upper))
+    if (length(out_idx) > 0) {
+      graphics::points(x_values[out_idx], y[out_idx], pch = 16, cex = point_cex, col = "red")
+    }
+
+    summary_rows[[i]] <- data.frame(
+      Variable = .prettify_missing_column_name(var_name),
+      `Observations Checked` = checked,
+      `Outside SD` = flagged,
+      `Outside SD Percent` = if (checked > 0) round(100 * flagged / checked, 2) else NA_real_,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  }
+
+  graphics::mtext(
+    sprintf(
+      "%s (ID %d) | Baseline: %s | Threshold: +/- %.2f SD",
+      station_name,
+      station_id,
+      baseline_info$profile_label,
+      sd_threshold
+    ),
+    outer = TRUE,
+    cex = 0.9,
+    line = 0.3
+  )
+
+  summary_df <- do.call(rbind, summary_rows)
+  if (isTRUE(verbose)) {
+    cat("\nStation outlier summary\n")
+    .print_diagnostic_table(summary_df)
+  }
+
+  invisible(list(
+    station_id = station_id,
+    station_name = station_name,
+    baseline_profile = baseline_info$profile_label,
+    baseline_source = baseline_info$source,
+    sd_threshold = sd_threshold,
+    summary = summary_df
+  ))
+}
+
 # Backward-compatible alias for older scripts.
 out_of_range_diagnostics <- function(...) {
   range_diagnostics(...)
