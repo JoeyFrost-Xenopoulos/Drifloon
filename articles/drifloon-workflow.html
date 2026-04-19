@@ -251,6 +251,56 @@ specified ot be anything you like.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/create_database.html">create_database</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="run-diagnostics-on-the-database">Run diagnostics on the database<a class="anchor" aria-label="anchor" href="#run-diagnostics-on-the-database"></a>
+</h2>
+<p>After creating your database, you can run missing-data and range
+diagnostics.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Missingness by station/year and hour gaps</span></span>
+<span><span class="va">missing_obs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/missing_obs_diagnostics.html">missing_obs_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Missingness by variable (optionally include station-variable breakdown)</span></span>
+<span><span class="va">missing_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/missing_vars_diagnostics.html">missing_vars_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  include_station_breakdown <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Out-of-range checks against baseline ranges (3 SD + 5 SD counts)</span></span>
+<span><span class="va">range_diag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/range_diagnostics.html">range_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  include_station_breakdown <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  include_outlier_rows <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="plot-station-outliers-against-baseline-bounds">Plot station outliers against baseline bounds<a class="anchor" aria-label="anchor" href="#plot-station-outliers-against-baseline-bounds"></a>
+</h2>
+<p>Use <code><a href="../reference/plot_station_outliers.html">plot_station_outliers()</a></code> to visualize a station
+across variables and highlight points outside the SD threshold in
+red.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># By Station ID</span></span>
+<span><span class="fu"><a href="../reference/plot_station_outliers.html">plot_station_outliers</a></span><span class="op">(</span></span>
+<span>  station <span class="op">=</span> <span class="fl">5237</span>,</span>
+<span>  sd_threshold <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  years <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1994</span>, <span class="fl">1996</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Or by station name</span></span>
+<span><span class="fu"><a href="../reference/plot_station_outliers.html">plot_station_outliers</a></span><span class="op">(</span></span>
+<span>  station <span class="op">=</span> <span class="st">"BIG TROUT LAKE"</span>,</span>
+<span>  sd_threshold <span class="op">=</span> <span class="fl">3</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="helper-internals">Helper internals<a class="anchor" aria-label="anchor" href="#helper-internals"></a>
 </h2>
 <ul>
@@ -278,14 +328,14 @@ specified ot be anything you like.</p>
 </li>
 </ul>
 <p>You can inspect internals for debugging with triple-colon access:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">Drifloon</span><span class="fu">:::</span><span class="fu"><a href="../reference/dot-normalize_station_name_key.html">.normalize_station_name_key</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Montréal/Trudeau"</span>, <span class="st">"Montreal Trudeau"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">Drifloon</span><span class="fu">:::</span><span class="fu"><a href="../reference/dot-province_normalize.html">.province_normalize</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"on"</span>, <span class="st">"Ontario"</span>, <span class="st">"QC"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="typical-end-to-end-workflow">Typical end-to-end workflow<a class="anchor" aria-label="anchor" href="#typical-end-to-end-workflow"></a>
 </h2>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/JoeyFrost-Xenopoulos/Drifloon" class="external-link">Drifloon</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 1) Refresh metadata</span></span>
@@ -320,7 +370,22 @@ specified ot be anything you like.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 6) Create relational database</span></span>
-<span><span class="fu"><a href="../reference/create_database.html">create_database</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/create_database.html">create_database</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 7) Run missingness diagnostics</span></span>
+<span><span class="fu"><a href="../reference/missing_obs_diagnostics.html">missing_obs_diagnostics</a></span><span class="op">(</span>base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, write_csv <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/missing_vars_diagnostics.html">missing_vars_diagnostics</a></span><span class="op">(</span>base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, write_csv <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 8) Run out-of-range diagnostics</span></span>
+<span><span class="fu"><a href="../reference/range_diagnostics.html">range_diagnostics</a></span><span class="op">(</span></span>
+<span>  base_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  include_station_breakdown <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  include_outlier_rows <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  write_csv <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 9) Plot station outliers (outside SD shown in red)</span></span>
+<span><span class="fu"><a href="../reference/plot_station_outliers.html">plot_station_outliers</a></span><span class="op">(</span>station <span class="op">=</span> <span class="fl">5237</span>, sd_threshold <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
