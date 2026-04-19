@@ -29,6 +29,7 @@ test_that("missing_obs_diagnostics reports missing hourly rows", {
     Stn_Press_kPa = c(1, 1),
     Hmdx = c(1, 1),
     Wind_Chill = c(1, 1),
+    Precip_Amount = c(0, 0),
     Weather = c("Clear", "Clear"),
     stringsAsFactors = FALSE
   )
@@ -84,6 +85,7 @@ test_that("missing_obs_diagnostics leaves sequential hours untouched", {
     Stn_Press_kPa = c(1, 1, 1),
     Hmdx = c(1, 1, 1),
     Wind_Chill = c(1, 1, 1),
+    Precip_Amount = c(0, 0, 0),
     Weather = c("Clear", "Clear", "Clear"),
     stringsAsFactors = FALSE
   )

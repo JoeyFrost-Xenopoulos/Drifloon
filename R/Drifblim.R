@@ -442,7 +442,15 @@ download_all_station <- function(station_data = NULL, out_dir = NULL, first_year
     }
   } else {
     # Parallel: download without master counter (futures make tracking difficult)
-    furrr::future_walk(station_rows, function(station_row) {
+    station_grid <- station_data[, c("Name", "Station.ID", "Province", "HLY.First.Year", "HLY.Last.Year"), drop = FALSE]
+    furrr::future_pwalk(station_grid, function(Name, Station.ID, Province, HLY.First.Year, HLY.Last.Year) {
+      station_row <- list(
+        Name = Name,
+        Station.ID = Station.ID,
+        Province = Province,
+        HLY.First.Year = HLY.First.Year,
+        HLY.Last.Year = HLY.Last.Year
+      )
       download_station(station_row, out_dir, first_year, last_year, parallel = FALSE)
     })
     cat(sprintf("\nCompleted %d/%d stations.\n", nrow(station_data), nrow(station_data)))

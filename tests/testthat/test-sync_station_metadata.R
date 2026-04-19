@@ -21,14 +21,17 @@ test_that(".sync_station_metadata updates files when metadata is new", {
   csv_path <- file.path(tmp_root, "extdata", "HLY_station_info.csv")
   rds_path <- file.path(tmp_root, "data", "HLY_station_info.rds")
 
-  result <- expect_message(
-    Drifloon:::.sync_station_metadata(
-      station_csv_url = "https://example.com/stations.csv",
-      csv_path = csv_path,
-      rds_path = rds_path,
-      require_hourly = TRUE,
-      downloader = fake_downloader
-    ),
+  result <- NULL
+  expect_message(
+    {
+      result <- Drifloon:::.sync_station_metadata(
+        station_csv_url = "https://example.com/stations.csv",
+        csv_path = csv_path,
+        rds_path = rds_path,
+        require_hourly = TRUE,
+        downloader = fake_downloader
+      )
+    },
     "Station metadata updated"
   )
 
@@ -70,14 +73,17 @@ test_that(".sync_station_metadata skips write when metadata is unchanged", {
     invisible(0)
   }
 
-  result <- expect_message(
-    Drifloon:::.sync_station_metadata(
-      station_csv_url = "https://example.com/stations.csv",
-      csv_path = csv_path,
-      rds_path = rds_path,
-      require_hourly = TRUE,
-      downloader = fake_downloader
-    ),
+  result <- NULL
+  expect_message(
+    {
+      result <- Drifloon:::.sync_station_metadata(
+        station_csv_url = "https://example.com/stations.csv",
+        csv_path = csv_path,
+        rds_path = rds_path,
+        require_hourly = TRUE,
+        downloader = fake_downloader
+      )
+    },
     "already up to date"
   )
 
@@ -192,14 +198,17 @@ test_that(".sync_station_metadata continues when current metadata files are miss
     invisible(0)
   }
 
-  result <- expect_message(
-    Drifloon:::.sync_station_metadata(
-      station_csv_url = "https://example.com/stations.csv",
-      csv_path = csv_path,
-      rds_path = rds_path,
-      require_hourly = TRUE,
-      downloader = fake_downloader
-    ),
+  result <- NULL
+  expect_message(
+    {
+      result <- Drifloon:::.sync_station_metadata(
+        station_csv_url = "https://example.com/stations.csv",
+        csv_path = csv_path,
+        rds_path = rds_path,
+        require_hourly = TRUE,
+        downloader = fake_downloader
+      )
+    },
     "Current CSV metadata file is missing"
   )
 
@@ -287,6 +296,29 @@ test_that(".read_station_inventory_csv normalizes spaced header variants", {
   expect_equal(parsed$data$Station.ID[[1]], 1)
   expect_equal(parsed$data$HLY.First.Year[[1]], 2000)
   expect_equal(parsed$data$HLY.Last.Year[[1]], 2005)
+})
+
+test_that(".read_station_inventory_csv handles trailing comma ragged rows", {
+  tmp_csv <- tempfile(fileext = ".csv")
+
+  lines <- c(
+    "Modified Date: 2026-01-07 23:30 UTC,,,,",
+    "Station Inventory Disclaimer: snapshot statement,,,,",
+    "Station ID Disclaimer: ids may change,,,,",
+    "",
+    "Name,Province,Station.ID,HLY.First.Year,HLY.Last.Year",
+    "A Station,ONTARIO,1,2000,2005",
+    "B Station,QUEBEC,2,,,"
+  )
+
+  writeLines(lines, con = tmp_csv)
+
+  parsed <- Drifloon:::.read_station_inventory_csv(tmp_csv)
+
+  expect_equal(nrow(parsed$data), 2)
+  expect_equal(parsed$data$Station.ID[[1]], 1)
+  expect_true(is.na(parsed$data$HLY.First.Year[[2]]))
+  expect_true(is.na(parsed$data$HLY.Last.Year[[2]]))
 })
 
 test_that(".sync_station_metadata applies no default year floor or cap", {

@@ -150,7 +150,7 @@ download_station <- function(station, out_dir = NULL, first_year = NULL, last_ye
   if (begin_year < meta_first) {
     stop(
       "Requested start year (", begin_year,
-      ") is earlier than available data (", meta_first, ") for station ",
+      ") is outside available data (", meta_first, "-", meta_last, ") for station ",
       station_name, "."
     )
   }
@@ -158,7 +158,7 @@ download_station <- function(station, out_dir = NULL, first_year = NULL, last_ye
   if (end_year > meta_last) {
     stop(
       "Requested end year (", end_year,
-      ") is later than available data (", meta_last, ") for station ",
+      ") is outside available data (", meta_first, "-", meta_last, ") for station ",
       station_name, "."
     )
   }

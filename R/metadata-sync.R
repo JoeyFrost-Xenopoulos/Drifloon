@@ -110,6 +110,13 @@
   names(data)[idx_hly_first] <- "HLY.First.Year"
   names(data)[idx_hly_last] <- "HLY.Last.Year"
 
+  # Preserve historical typing expectations used by tests and downstream filters.
+  data$Name <- as.character(data$Name)
+  data$Province <- as.character(data$Province)
+  data$Station.ID <- suppressWarnings(as.numeric(data$Station.ID))
+  data$HLY.First.Year <- suppressWarnings(as.numeric(data$HLY.First.Year))
+  data$HLY.Last.Year <- suppressWarnings(as.numeric(data$HLY.Last.Year))
+
   data
 }
 
@@ -226,10 +233,33 @@
   con <- textConnection(table_lines)
   on.exit(close(con), add = TRUE)
 
-  data <- tryCatch(
-    utils::read.csv(con, stringsAsFactors = FALSE, check.names = TRUE),
+  raw_data <- tryCatch(
+    utils::read.csv(
+      con,
+      header = FALSE,
+      stringsAsFactors = FALSE,
+      check.names = FALSE,
+      fill = TRUE,
+      na.strings = c("", "NA"),
+      comment.char = ""
+    ),
     error = function(e) stop("Failed to parse station inventory table: ", e$message)
   )
+
+  if (nrow(raw_data) < 2) {
+    stop("Station inventory table is missing data rows.")
+  }
+
+  header_cells <- as.character(raw_data[1, , drop = TRUE])
+  header_cells[is.na(header_cells)] <- ""
+  header_nonempty <- which(nzchar(trimws(header_cells)))
+  if (length(header_nonempty) == 0) {
+    stop("Station inventory header row is empty.")
+  }
+
+  header_width <- max(header_nonempty)
+  data <- raw_data[-1, seq_len(header_width), drop = FALSE]
+  names(data) <- trimws(header_cells[seq_len(header_width)])
 
   data <- .standardize_station_inventory_columns(data)
 

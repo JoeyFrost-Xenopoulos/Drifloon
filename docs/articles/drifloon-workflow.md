@@ -210,6 +210,28 @@ range_diag <- range_diagnostics(
 )
 ```
 
+## Detect heatwaves from baseline temperature thresholds
+
+Use `heatwave_diagnostics()` to detect heatwave events defined as two or
+more consecutive hot days. A day is flagged when either daily maximum
+temperature is above `mean + 5 * sd` or daily average temperature is above
+`mean + 3 * sd` from the 1980-2020 baseline ranges.
+
+``` r
+heatwave_diag <- heatwave_diagnostics(
+  base_dir = getwd(),
+  min_consecutive_days = 2,
+  max_sd_threshold = 5,
+  avg_sd_threshold = 3,
+  write_csv = TRUE,
+  verbose = TRUE
+)
+
+# Event table and per-day flags are available in the returned list
+head(heatwave_diag$heatwave_events)
+head(heatwave_diag$heatwave_days)
+```
+
 ## Plot station outliers against baseline bounds
 
 Use `plot_station_outliers()` to visualize a station across variables and
@@ -307,6 +329,13 @@ range_diagnostics(
   write_csv = TRUE
 )
 
-# 9) Plot station outliers (outside SD shown in red)
+# 9) Detect heatwave events (2+ consecutive hot days)
+heatwave_diagnostics(
+  base_dir = getwd(),
+  min_consecutive_days = 2,
+  write_csv = TRUE
+)
+
+# 10) Plot station outliers (outside SD shown in red)
 plot_station_outliers(station = 5237, sd_threshold = 3)
 ```
