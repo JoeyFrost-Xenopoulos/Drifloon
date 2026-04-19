@@ -3,7 +3,8 @@
 #' Flags unexpected values by comparing Observation variables against a baseline
 #' \eqn{\mu \pm 3\sigma} range from a reference profile (for example,
 #' historical 1980-2020 data). This is intended as a general warning tool, not
-#' a strict physical-validity check.
+#' a strict physical-validity check. The summary tables also include counts
+#' beyond \eqn{\mu \pm 5\sigma}.
 #'
 #' @param base_dir Character. Root directory containing the database folder.
 #' @param db_name Character. SQLite database file name under
@@ -36,7 +37,7 @@
 #'   \code{out_of_range_by_station_variable} and
 #'   \code{out_of_range_observations}. The return value is invisible.
 #' @export
-out_of_range_diagnostics <- function(
+range_diagnostics <- function(
   base_dir = getwd(),
   db_name = "climate_database.db",
   out_dir = file.path(base_dir, "drifloon_output", "diagnostics"),
@@ -159,6 +160,20 @@ out_of_range_diagnostics <- function(
 
   baseline_ranges <- baseline_ranges[order(match(baseline_ranges$Variable, variables)), , drop = FALSE]
 
+  baseline_ranges$Mean_Value <- suppressWarnings(as.numeric(baseline_ranges$Mean_Value))
+  baseline_ranges$Sd_Value <- suppressWarnings(as.numeric(baseline_ranges$Sd_Value))
+  invalid_baseline <- !is.finite(baseline_ranges$Mean_Value) |
+    !is.finite(baseline_ranges$Sd_Value) |
+    baseline_ranges$Sd_Value < 0
+  if (any(invalid_baseline)) {
+    stop(
+      "Baseline ranges contain invalid Mean_Value/Sd_Value for variable(s): ",
+      paste(baseline_ranges$Variable[invalid_baseline], collapse = ", "),
+      ". Mean_Value and Sd_Value must be finite numbers, and Sd_Value must be >= 0.",
+      call. = FALSE
+    )
+  }
+
   where_clause <- .resolve_diagnostic_scope(
     con,
     station_ids = station_ids,
@@ -166,40 +181,61 @@ out_of_range_diagnostics <- function(
     years = years
   )
 
-  range_scope_summary <- DBI::dbGetQuery(
+  scope_columns <- unique(c(
+    "Year",
+    if (isTRUE(include_outlier_rows)) c("Month", "Day", "Time_LST") else character(0),
+    variables
+  ))
+  scope_column_sql <- paste(sprintf("o.%s AS %s", scope_columns, scope_columns), collapse = ",\n        ")
+
+  DBI::dbExecute(
     con,
     sprintf(
       "
+      CREATE TEMP TABLE scoped_observations AS
       SELECT
-        s.Station_Name AS \"Station Name\",
-        s.Station_ID AS \"Station ID\",
-        CAST(MIN(o.Year) AS TEXT) || '-' || CAST(MAX(o.Year) AS TEXT) AS \"Year Range\"
+        s.Station_Name AS station_name,
+        s.Station_ID AS station_id,
+        %s
       FROM Observation o
       INNER JOIN Station s ON s.Station_ID = o.Station_ID
-      %s
-      GROUP BY s.Station_Name, s.Station_ID
-      ORDER BY s.Station_Name;
+      %s;
       ",
+      scope_column_sql,
       where_clause
     )
+  )
+
+  range_scope_summary <- DBI::dbGetQuery(
+    con,
+    "
+    SELECT
+      o.station_name AS \"Station Name\",
+      o.station_id AS \"Station ID\",
+      CAST(MIN(o.Year) AS TEXT) || '-' || CAST(MAX(o.Year) AS TEXT) AS \"Year Range\"
+    FROM scoped_observations o
+    GROUP BY o.station_name, o.station_id
+    ORDER BY o.station_name;
+    "
   )
 
   variable_sql <- vapply(
     seq_len(nrow(baseline_ranges)),
     function(i) {
       col_name <- baseline_ranges$Variable[i]
-      lower_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) - 3 * as.numeric(baseline_ranges$Sd_Value[i])
-      upper_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) + 3 * as.numeric(baseline_ranges$Sd_Value[i])
+      lower_3sd <- baseline_ranges$Mean_Value[i] - 3 * baseline_ranges$Sd_Value[i]
+      upper_3sd <- baseline_ranges$Mean_Value[i] + 3 * baseline_ranges$Sd_Value[i]
+      lower_5sd <- baseline_ranges$Mean_Value[i] - 5 * baseline_ranges$Sd_Value[i]
+      upper_5sd <- baseline_ranges$Mean_Value[i] + 5 * baseline_ranges$Sd_Value[i]
 
       sprintf(
         "
         SELECT
           '%s' AS variable_key,
           SUM(CASE WHEN o.%s IS NOT NULL THEN 1 ELSE 0 END) AS observations_checked,
-          SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_3sd_cells
-        FROM Observation o
-        INNER JOIN Station s ON s.Station_ID = o.Station_ID
-        %s
+          SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_3sd_cells,
+          SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_5sd_cells
+        FROM scoped_observations o
         ",
         col_name,
         col_name,
@@ -208,7 +244,11 @@ out_of_range_diagnostics <- function(
         lower_3sd,
         col_name,
         upper_3sd,
-        where_clause
+        col_name,
+        col_name,
+        lower_5sd,
+        col_name,
+        upper_5sd
       )
     },
     FUN.VALUE = character(1)
@@ -233,17 +273,19 @@ out_of_range_diagnostics <- function(
     order(out_of_range_by_variable[["Outside 3 SD +- Percent"]], decreasing = TRUE),
     c(
       "variable_key",
-      "outside_3sd_cells",
       "observations_checked",
-      "Outside 3 SD +- Percent"
+      "outside_3sd_cells",
+      "Outside 3 SD +- Percent",
+      "outside_5sd_cells"
     )
   ]
 
   names(out_of_range_by_variable) <- c(
     "Variable",
-    "Outside 3 SD +-",
     "Observations Checked",
-    "Outside 3 SD +- Percent"
+    "Outside 3 SD +-",
+    "Outside 3 SD +- Percent",
+    "Outside 5 SD +-"
   )
   out_of_range_by_variable[["Variable"]] <-
     .prettify_missing_column_name(out_of_range_by_variable[["Variable"]])
@@ -254,21 +296,22 @@ out_of_range_diagnostics <- function(
       seq_len(nrow(baseline_ranges)),
       function(i) {
         col_name <- baseline_ranges$Variable[i]
-        lower_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) - 3 * as.numeric(baseline_ranges$Sd_Value[i])
-        upper_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) + 3 * as.numeric(baseline_ranges$Sd_Value[i])
+        lower_3sd <- baseline_ranges$Mean_Value[i] - 3 * baseline_ranges$Sd_Value[i]
+        upper_3sd <- baseline_ranges$Mean_Value[i] + 3 * baseline_ranges$Sd_Value[i]
+        lower_5sd <- baseline_ranges$Mean_Value[i] - 5 * baseline_ranges$Sd_Value[i]
+        upper_5sd <- baseline_ranges$Mean_Value[i] + 5 * baseline_ranges$Sd_Value[i]
 
         sprintf(
           "
           SELECT
-            s.Station_Name AS station_name,
-            s.Station_ID AS station_id,
+            o.station_name AS station_name,
+            o.station_id AS station_id,
             '%s' AS variable_key,
             SUM(CASE WHEN o.%s IS NOT NULL THEN 1 ELSE 0 END) AS observations_checked,
-            SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_3sd_cells
-          FROM Observation o
-          INNER JOIN Station s ON s.Station_ID = o.Station_ID
-          %s
-          GROUP BY s.Station_Name, s.Station_ID
+            SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_3sd_cells,
+            SUM(CASE WHEN o.%s IS NOT NULL AND (o.%s < %.15g OR o.%s > %.15g) THEN 1 ELSE 0 END) AS outside_5sd_cells
+          FROM scoped_observations o
+          GROUP BY o.station_name, o.station_id
           ",
           col_name,
           col_name,
@@ -277,7 +320,11 @@ out_of_range_diagnostics <- function(
           lower_3sd,
           col_name,
           upper_3sd,
-          where_clause
+          col_name,
+          col_name,
+          lower_5sd,
+          col_name,
+          upper_5sd
         )
       },
       FUN.VALUE = character(1)
@@ -308,9 +355,10 @@ out_of_range_diagnostics <- function(
         "station_name",
         "station_id",
         "variable_key",
-        "outside_3sd_cells",
         "observations_checked",
-        "Outside 3 SD +- Percent"
+        "outside_3sd_cells",
+        "Outside 3 SD +- Percent",
+        "outside_5sd_cells"
       )
     ]
 
@@ -318,18 +366,13 @@ out_of_range_diagnostics <- function(
       "Station Name",
       "Station ID",
       "Variable",
-      "Outside 3 SD +-",
       "Observations Checked",
-      "Outside 3 SD +- Percent"
+      "Outside 3 SD +-",
+      "Outside 3 SD +- Percent",
+      "Outside 5 SD +-"
     )
     out_of_range_by_station_variable[["Variable"]] <-
       .prettify_missing_column_name(out_of_range_by_station_variable[["Variable"]])
-  }
-
-  scope_filter <- if (nzchar(where_clause)) {
-    sub("^WHERE ", "", where_clause)
-  } else {
-    "1 = 1"
   }
 
   out_of_range_observations <- NULL
@@ -338,14 +381,14 @@ out_of_range_diagnostics <- function(
       seq_len(nrow(baseline_ranges)),
       function(i) {
         col_name <- baseline_ranges$Variable[i]
-        lower_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) - 3 * as.numeric(baseline_ranges$Sd_Value[i])
-        upper_3sd <- as.numeric(baseline_ranges$Mean_Value[i]) + 3 * as.numeric(baseline_ranges$Sd_Value[i])
+        lower_3sd <- baseline_ranges$Mean_Value[i] - 3 * baseline_ranges$Sd_Value[i]
+        upper_3sd <- baseline_ranges$Mean_Value[i] + 3 * baseline_ranges$Sd_Value[i]
 
         sprintf(
           "
           SELECT
-            s.Station_Name AS \"Station Name\",
-            s.Station_ID AS \"Station ID\",
+            o.station_name AS \"Station Name\",
+            o.station_id AS \"Station ID\",
             o.Year AS \"Year\",
             o.Month AS \"Month\",
             o.Day AS \"Day\",
@@ -354,17 +397,14 @@ out_of_range_diagnostics <- function(
             CAST(o.%s AS REAL) AS \"Observed Value\",
             %.15g AS \"Lower 3 SD\",
             %.15g AS \"Upper 3 SD\"
-          FROM Observation o
-          INNER JOIN Station s ON s.Station_ID = o.Station_ID
-          WHERE %s
-          AND o.%s IS NOT NULL
+          FROM scoped_observations o
+          WHERE o.%s IS NOT NULL
           AND (o.%s < %.15g OR o.%s > %.15g)
           ",
           col_name,
           col_name,
           lower_3sd,
           upper_3sd,
-          scope_filter,
           col_name,
           col_name,
           lower_3sd,
@@ -481,4 +521,9 @@ out_of_range_diagnostics <- function(
   }
 
   invisible(result)
+}
+
+# Backward-compatible alias for older scripts.
+out_of_range_diagnostics <- function(...) {
+  range_diagnostics(...)
 }

@@ -24,7 +24,7 @@
 #'   \code{missing_summary} data frames using readable column titles. The
 #'   return value is invisible.
 #' @export
-missing_observations_diagnostics <- function(
+missing_obs_diagnostics <- function(
   base_dir = getwd(),
   db_name = "climate_database.db",
   out_dir = file.path(base_dir, "drifloon_output", "diagnostics"),
@@ -313,6 +313,11 @@ missing_observations_diagnostics <- function(
   invisible(result)
 }
 
+# Backward-compatible alias for older scripts.
+missing_observations_diagnostics <- function(...) {
+  missing_obs_diagnostics(...)
+}
+
 #' Diagnose Missingness by Variable in a Drifloon Database
 #'
 #' Computes missing-cell percentages for each variable in the Observation table
@@ -341,7 +346,7 @@ missing_observations_diagnostics <- function(
 #'   \code{missing_variable_summary}, and (optionally)
 #'   \code{missing_by_station_variable}. The return value is invisible.
 #' @export
-missing_variables_diagnostics <- function(
+missing_vars_diagnostics <- function(
   base_dir = getwd(),
   db_name = "climate_database.db",
   out_dir = file.path(base_dir, "drifloon_output", "diagnostics"),
@@ -600,4 +605,9 @@ missing_variables_diagnostics <- function(
   }
 
   invisible(result)
+}
+
+# Backward-compatible alias for older scripts.
+missing_variables_diagnostics <- function(...) {
+  missing_vars_diagnostics(...)
 }

@@ -1,4 +1,4 @@
-test_that("missing_observations_diagnostics reports missing hourly rows", {
+test_that("missing_obs_diagnostics reports missing hourly rows", {
   skip_if_not_installed("RSQLite")
 
   base_dir <- tempfile("missing-diagnostics-")
@@ -36,7 +36,7 @@ test_that("missing_observations_diagnostics reports missing hourly rows", {
   DBI::dbWriteTable(con, "Station", station, overwrite = TRUE, row.names = FALSE)
   DBI::dbWriteTable(con, "Observation", observations, overwrite = TRUE, row.names = FALSE)
 
-  result <- missing_observations_diagnostics(
+  result <- missing_obs_diagnostics(
     base_dir = base_dir,
     write_csv = FALSE,
     verbose = FALSE,
@@ -53,7 +53,7 @@ test_that("missing_observations_diagnostics reports missing hourly rows", {
   expect_equal(result$missing_summary[["Missing Hour Rows"]][1], 1L)
 })
 
-test_that("missing_observations_diagnostics leaves sequential hours untouched", {
+test_that("missing_obs_diagnostics leaves sequential hours untouched", {
   skip_if_not_installed("RSQLite")
 
   base_dir <- tempfile("missing-diagnostics-")
@@ -91,7 +91,7 @@ test_that("missing_observations_diagnostics leaves sequential hours untouched", 
   DBI::dbWriteTable(con, "Station", station, overwrite = TRUE, row.names = FALSE)
   DBI::dbWriteTable(con, "Observation", observations, overwrite = TRUE, row.names = FALSE)
 
-  result <- missing_observations_diagnostics(
+  result <- missing_obs_diagnostics(
     base_dir = base_dir,
     write_csv = FALSE,
     verbose = FALSE,
