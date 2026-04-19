@@ -167,6 +167,8 @@ MIT
   : Diagnose Missing Observations in a Drifloon Database
 - [`missing_vars_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_vars_diagnostics.md)
   : Diagnose Missingness by Variable in a Drifloon Database
+- [`plot_station_outliers()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/plot_station_outliers.md)
+  : Plot Station Observations Against Baseline SD Bounds
 - [`range_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/range_diagnostics.md)
   : Diagnose Out-of-Range Values Using Baseline Variable Ranges
 - [`sync_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/sync_metadata.md)
