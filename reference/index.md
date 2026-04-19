@@ -19,11 +19,11 @@
   : Drifloon: Canadian Weather Data Download Toolkit
 - [`load_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/load_metadata.md)
   : Load station metadata
-- [`missing_observations_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_observations_diagnostics.md)
+- [`missing_obs_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_obs_diagnostics.md)
   : Diagnose Missing Observations in a Drifloon Database
-- [`missing_variables_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_variables_diagnostics.md)
+- [`missing_vars_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/missing_vars_diagnostics.md)
   : Diagnose Missingness by Variable in a Drifloon Database
-- [`out_of_range_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/out_of_range_diagnostics.md)
+- [`range_diagnostics()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/range_diagnostics.md)
   : Diagnose Out-of-Range Values Using Baseline Variable Ranges
 - [`sync_metadata()`](https://joeyfrost-xenopoulos.github.io/Drifloon/reference/sync_metadata.md)
   : Sync station metadata from Environment Canada
