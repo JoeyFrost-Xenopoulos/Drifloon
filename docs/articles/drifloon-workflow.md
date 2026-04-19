@@ -171,6 +171,65 @@ download_all_station(
 )
 ```
 
+## Create a SQL databse
+
+The default directory is your current working directory but it can be specified ot be anything
+you like.
+
+``` r
+create_database()
+```
+
+## Run diagnostics on the database
+
+After creating your database, you can run missing-data and range diagnostics.
+
+``` r
+# Missingness by station/year and hour gaps
+missing_obs <- missing_obs_diagnostics(
+  base_dir = getwd(),
+  write_csv = TRUE,
+  verbose = TRUE
+)
+
+# Missingness by variable (optionally include station-variable breakdown)
+missing_vars <- missing_vars_diagnostics(
+  base_dir = getwd(),
+  include_station_breakdown = TRUE,
+  write_csv = TRUE,
+  verbose = TRUE
+)
+
+# Out-of-range checks against baseline ranges (3 SD + 5 SD counts)
+range_diag <- range_diagnostics(
+  base_dir = getwd(),
+  include_station_breakdown = TRUE,
+  include_outlier_rows = TRUE,
+  write_csv = TRUE,
+  verbose = TRUE
+)
+```
+
+## Plot station outliers against baseline bounds
+
+Use `plot_station_outliers()` to visualize a station across variables and
+highlight points outside the SD threshold in red.
+
+``` r
+# By Station ID
+plot_station_outliers(
+  station = 5237,
+  sd_threshold = 3,
+  years = c(1994, 1996)
+)
+
+# Or by station name
+plot_station_outliers(
+  station = "BIG TROUT LAKE",
+  sd_threshold = 3
+)
+```
+
 ## Helper internals and how they support the API
 
 Drifloon includes internal helpers (not exported) that make wrappers
@@ -232,4 +291,22 @@ download_station_province(
   out_dir = "drifloon_output",
   confirm = TRUE
 )
+
+# 6) Create relational database
+create_database()
+
+# 7) Run missingness diagnostics
+missing_obs_diagnostics(base_dir = getwd(), write_csv = TRUE)
+missing_vars_diagnostics(base_dir = getwd(), write_csv = TRUE)
+
+# 8) Run out-of-range diagnostics
+range_diagnostics(
+  base_dir = getwd(),
+  include_station_breakdown = TRUE,
+  include_outlier_rows = TRUE,
+  write_csv = TRUE
+)
+
+# 9) Plot station outliers (outside SD shown in red)
+plot_station_outliers(station = 5237, sd_threshold = 3)
 ```

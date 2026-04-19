@@ -731,6 +731,19 @@ plot_station_outliers <- function(
     stop("No observations matched the selected station/scope.", call. = FALSE)
   }
 
+  large_plot_warning_threshold <- 40000L
+  observation_count <- nrow(station_data)
+  if (observation_count > large_plot_warning_threshold) {
+    warning(
+      "plot_station_outliers() is about to plot ",
+      observation_count,
+      " observations (>",
+      large_plot_warning_threshold,
+      "). This may take a while. Consider narrowing years or variables.",
+      call. = FALSE
+    )
+  }
+
   safe_parse_time <- function(x, formats) {
     parsed <- rep(as.POSIXct(NA), length(x))
     for (fmt in formats) {
