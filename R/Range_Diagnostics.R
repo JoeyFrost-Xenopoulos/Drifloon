@@ -1,10 +1,10 @@
 #' Diagnose Out-of-Range Values Using Baseline Variable Ranges
 #'
 #' Flags unexpected values by comparing Observation variables against a baseline
-#' \eqn{\mu \pm 3\sigma} range from a reference profile (for example,
+#' standard deviation range of +- 3 from a reference profile (for example,
 #' historical 1980-2020 data). This is intended as a general warning tool, not
 #' a strict physical-validity check. The summary tables also include counts
-#' beyond \eqn{\mu \pm 5\sigma}.
+#' beyond standard deviation +- 5}.
 #'
 #' @param base_dir Character. Root directory containing the database folder.
 #' @param db_name Character. SQLite database file name under
